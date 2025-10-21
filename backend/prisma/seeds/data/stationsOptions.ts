@@ -1,0 +1,38 @@
+export default [
+  {
+    id: "154949be-4365-4d38-86ac-24caf4368d8c",
+    shiftNotificationEnabled: true,
+    calibrationNotificationEnabled: false,
+    seasonNotificationEnabled: true,
+    receiptCoefficientEnabled: false,
+    fixshiftNotificationEnabled: true,
+    seasonCount: 2,
+  },
+  {
+    id: "609fe8e8-0c42-415e-bd87-29bc556447cd",
+    shiftNotificationEnabled: false,
+    calibrationNotificationEnabled: true,
+    seasonNotificationEnabled: false,
+    receiptCoefficientEnabled: true,
+    fixshiftNotificationEnabled: false,
+    seasonCount: 1,
+  },
+  {
+    id: "1a8dab40-d373-4257-86b3-93de9a49f697",
+    shiftNotificationEnabled: true,
+    calibrationNotificationEnabled: true,
+    seasonNotificationEnabled: false,
+    receiptCoefficientEnabled: false,
+    fixshiftNotificationEnabled: true,
+    seasonCount: 3,
+  },
+  {
+    id: "5741a701-86f9-4c4a-929d-f2a080aa890f",
+    shiftNotificationEnabled: false,
+    calibrationNotificationEnabled: false,
+    seasonNotificationEnabled: true,
+    receiptCoefficientEnabled: true,
+    fixshiftNotificationEnabled: false,
+    seasonCount: 4,
+  },
+];

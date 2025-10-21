@@ -1,0 +1,192 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+enum CurrencyType {
+  AMD
+  RUB
+  USD
+  EUR
+  GEL
+}
+
+enum StationStatus {
+  Active
+  NotActive
+}
+
+model User {
+  id       String @id @default(uuid())
+  login    String @unique
+  password String
+
+  twoFASecret  String?
+  twoFAEnabled Boolean @default(true)
+
+  @@map("users")
+}
+
+model Company {
+  id          String @id @default(uuid())
+  name        String
+  description String
+
+  ownerContact   Contact @relation(fields: [ownerContactId], references: [id])
+  ownerContactId String
+
+  stations Station[]
+
+  @@map("companies")
+}
+
+model Station {
+  id String @id @default(uuid())
+
+  contact Contact? @relation(fields: [contactId], references: [id])
+
+  country String
+  city    String
+  address String
+
+  procCount   Int
+  pistolCount Int
+
+  currencyType  CurrencyType
+  currencyValue Float        @default(0)
+
+  synchronize DateTime?
+
+  status    StationStatus
+  paidUntil DateTime?
+
+  discount Float
+
+  contactId  String?
+  macAddress String?
+
+  cryptoKey   StationCryptoKey? @relation(fields: [cryptoKeyId], references: [id])
+  cryptoKeyId String?
+
+  company   Company @relation(fields: [companyId], references: [id])
+  companyId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stationsOnFuels   StationsOnFuels[]
+  stationsOptions   StationsOptions?  @relation(fields: [stationsOptionsId], references: [id])
+  stationsOptionsId String            @unique
+
+  stationMessages StationMessages[]
+
+  @@map("stations")
+}
+
+model StationMessages {
+  id String @id @default(uuid())
+
+  text      String
+  createdAt DateTime @default(now())
+
+  station   Station @relation(fields: [stationId], references: [id])
+  stationId String
+
+  viewed Boolean @default(false)
+
+  @@map("stations_messages")
+}
+
+model StationsOptions {
+  id String @id @default(uuid())
+
+  station Station?
+
+  shiftNotificationEnabled       Boolean @default(false)
+  calibrationNotificationEnabled Boolean @default(false)
+  seasonNotificationEnabled      Boolean @default(false)
+  receiptCoefficientEnabled      Boolean @default(false)
+  fixshiftNotificationEnabled    Boolean @default(false)
+
+  seasonCount Int @default(0)
+
+  @@map("stations_options")
+}
+
+model StationsOnFuels {
+  id        String  @id @default(uuid())
+  station   Station @relation(fields: [stationId], references: [id])
+  stationId String
+  fuel      Fuel    @relation(fields: [fuelId], references: [id])
+  fuelId    String
+
+  assignedAt DateTime @default(now())
+
+  @@map("stations_on_fuels")
+}
+
+model StationCryptoKey {
+  id        String @id @default(uuid())
+  stationId String
+
+  key       String?
+  expiredAt DateTime?
+
+  station Station[]
+
+  createdAt DateTime @default(now())
+
+  @@map("stations_crypto_keys")
+}
+
+model Contact {
+  id String @id @default(uuid())
+
+  isOwner Boolean @default(false)
+
+  name        String
+  description String?
+
+  value   String?
+  company Company[]
+  station Station[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contacts")
+}
+
+model ExchangeRates {
+  id String @id @default(uuid())
+
+  fromCurrencyType CurrencyType
+  toCurrencyType   CurrencyType
+
+  rate Float
+
+  @@map("exchange_rates")
+}
+
+model PistolRates {
+  id String @id @default(uuid())
+
+  currencyType CurrencyType
+  rate         Float
+
+  @@map("pistol_rates")
+}
+
+model Fuel {
+  id String @id @default(uuid())
+
+  name          String
+  fuelOnStation StationsOnFuels[]
+
+  @@map("fuels")
+}

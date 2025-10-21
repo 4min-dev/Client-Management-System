@@ -1,0 +1,60 @@
+name: admin-client-app
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    #  - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    #  - ./nginx/ssl:/etc/letsencrypt
+    depends_on:
+      - backend
+    #  - web
+    networks:
+      - admin-client-app-net
+  pgadmin:
+    container_name: "pgadmin"
+    image: dpage/pgadmin4
+    ports:
+      - "8080:80"
+    volumes:
+      - /data/pgadmin:/root/.pgadmin
+    env_file:
+      - docker.env
+    networks:
+      - admin-client-app-net
+  backend:
+    container_name: "backend"
+    platform: linux/amd64
+    build: ../backend/
+    ports:
+      - "3000:3000"
+    depends_on:
+      - pgdb
+    networks:
+      - admin-client-app-net
+  #web:
+   # container_name: "web"
+   # platform: linux/amd64
+   # build: ../web/
+   # depends_on:
+    #  - backend
+  pgdb:
+    container_name: "pgdb"
+    image: postgres:15.1
+    ports:
+      - 5432:5432
+    volumes:
+      - /data/postgres:/data/postgres
+    env_file:
+      - docker.env
+    networks:
+      - admin-client-app-net
+volumes:
+  pg-data:
+  pg-admin:
+  
+networks:
+  admin-client-app-net:
