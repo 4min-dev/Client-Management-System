@@ -5,7 +5,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Lock, User, Shield } from 'lucide-react';
-import { useGenerate2faQuery, useLoginMutation } from '../services/authService';
+import { useGenerate2faQuery, useLogin2faMutation, useLoginMutation } from '../services/authService';
 
 type LoginPageProps = {
   onLogin: () => void
@@ -19,6 +19,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [handleLogin] = useLoginMutation()
+  const [handle2faLogin] = useLogin2faMutation()
   const { data: generated2fa } = useGenerate2faQuery(undefined, {
     skip: !showTwoFactor,
   })
@@ -58,21 +59,42 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }, 500);
   };
 
-  const handleSecondStep = (e: React.FormEvent) => {
+  const handleSecondStep = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+
+    try {
+      setError('');
+      setLoading(true);
+
+      const response = await handle2faLogin({ code: twoFactorCode, userId: generated2fa?.data?.id })
+      console.log(response)
+
+      if (response?.data?.data?.accessToken) {
+        sessionStorage.setItem('accessToken', response.data.data.accessToken)
+        onLogin()
+      }
+
+    } catch (error) {
+      console.log(error)
+      setError('Произошла ошибка')
+    } finally {
+      setLoading(false);
+    }
 
     // Mock 2FA verification
-    setTimeout(() => {
-      if (twoFactorCode === '123456') {
-        onLogin();
-      } else {
-        setError('Неправильный код аутентификации');
-        setLoading(false);
-      }
-    }, 500);
+    // setTimeout(() => {
+    //   if (twoFactorCode === '123456') {
+    //     onLogin();
+    //   } else {
+    //     setError('Неправильный код аутентификации');
+    //     setLoading(false);
+    //   }
+    // }, 500);
   };
+
+  useEffect(() => {
+    console.log(generated2fa)
+  }, [generated2fa])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -85,7 +107,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
           <CardTitle className="text-center">Система Управления АЗС</CardTitle>
           <CardDescription className="text-center">
-            {showTwoFactor ? 'Введите код двухфакторной аутентификации' : 'Войдите в систему'}
+            {showTwoFactor ? 'Отсканируйте QR и введите код двухфакторной аутентификации' : 'Войдите в систему'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -137,6 +159,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           ) : (
             <form onSubmit={handleSecondStep} className="space-y-4">
               <div className="space-y-2">
+                {
+                  generated2fa && generated2fa.data?.qr && (
+                    <div className='flex flex-col items-center'>
+                      <img src={generated2fa.data.qr ?? ''} alt="QR-код" />
+                    </div>
+                  )
+                }
                 <Label htmlFor="twoFactorCode">Код аутентификации</Label>
                 <div className="relative">
                   <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />

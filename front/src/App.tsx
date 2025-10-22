@@ -7,23 +7,13 @@ import { useUserAuthQuery } from './services/authService';
 
 export default function App() {
 
-  const { data: authData } = useUserAuthQuery()
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: authData, refetch: refetchUserAuth } = useUserAuthQuery()
   const [showFuelTypes, setShowFuelTypes] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
 
-  useEffect(() => {
-    // Check if user is already logged in (in real app, check session/token)
-    console.log(authData)
-    const loggedIn = sessionStorage.getItem('accessToken');
-    if (loggedIn === 'true') {
-      setIsAuthenticated(true);
-    }
-  }, []);
-
-  if (!isAuthenticated) {
+  if ((!authData?.data?.id) && (!authData?.isSuccess)) {
     return (
-      <LoginPage onLogin={() => setIsAuthenticated(true)} />
+      <LoginPage onLogin={() => refetchUserAuth()} />
     )
   }
 

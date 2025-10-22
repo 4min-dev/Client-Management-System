@@ -36,8 +36,22 @@ export const authService = createApi({
                     Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`
                 }
             })
+        }),
+
+        login2fa: builder.mutation<any, { userId: string, code: string }>({
+            query: ({ userId, code }) => ({
+                url: '2fa/login',
+                method: 'POST',
+                body: {
+                    userId,
+                    code
+                },
+                headers: {
+                    Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`
+                }
+            })
         })
     })
 })
 
-export const { useLoginMutation, useGenerate2faQuery, useUserAuthQuery } = authService
+export const { useLoginMutation, useGenerate2faQuery, useUserAuthQuery, useLogin2faMutation } = authService
