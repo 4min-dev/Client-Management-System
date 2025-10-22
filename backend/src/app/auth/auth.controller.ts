@@ -42,7 +42,7 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('2fa/generate')
-  async generate2FA(@Request() req): Promise<StreamableFile> {
+  async generate2FA(@Request() req): Promise<any> {
     var qr = await this.authService.generate2FAQR(req.user.id);
 
     const base64 = qr.split(',')[1];
@@ -51,10 +51,12 @@ export class AuthController {
     const stream = new PassThrough();
     stream.end(buffer);
 
-    return new StreamableFile(stream, {
-      type: 'image/png',
-      disposition: `inline; filename="${'2faQR.png'}"`,
-    });
+    // return new StreamableFile(stream, {
+    //   type: 'image/png',
+    //   disposition: `inline; filename="${'2faQR.png'}"`,
+    // });
+
+    return { qr, id: req.user.id }
   }
 
   @ApiBearerAuth()
