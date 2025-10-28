@@ -37,6 +37,11 @@ import { EditClientDialog } from './EditClientDialog';
 import { AddClientDialog } from './AddClientDialog';
 import { EventsDialog } from './EventsDialog';
 import { ContactsDialog } from './ContactsDialog';
+import { useGetCompaniesQuery, useSendMessageMutation, useDeleteCompanyMutation, useDeleteCompanyPermanentMutation } from '../services/companyService';
+import { MessageDialog } from './MessageDialog';
+import { DeleteCompanyDialog } from './DeleteCompanyDialog';
+import { useGetStationOptionsQuery } from '../services/stationService';
+import { updateCryptoKey } from '../utils/crypto';
 
 interface DashboardProps {
   onManageFuelTypes: () => void;
@@ -51,24 +56,98 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const [selectedFirm, setSelectedFirm] = useState<Firm | null>(null);
   const [showAddClient, setShowAddClient] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
-  const [showEvents, setShowEvents] = useState(false);
+  const [showEvents, setShowEvents] = useState<{ status: boolean, company: Firm | null }>({ status: false, company: null });
   const [showContacts, setShowContacts] = useState<Firm | null>(null);
+  const [showSendMessage, setShowSendMessage] = useState<{ status: boolean, companyId: string }>({
+    status: false,
+    companyId: '',
+  });
+  const [showDeletePassword, setShowDeletePassword] = useState<{ status: boolean, companyId: string, isPermanent: boolean }>({
+    status: false,
+    companyId: '',
+    isPermanent: false,
+  });
+  const [sendMessage] = useSendMessageMutation();
+  const [deleteCompany] = useDeleteCompanyMutation();
+  const [deleteCompanyPermanent] = useDeleteCompanyPermanentMutation();
+  const { data: companiesData } = useGetCompaniesQuery();
+
+  const handleDeleteCompany = async (companyId: string, password: string, isPermanent: boolean) => {
+    try {
+      if (isPermanent) {
+        await deleteCompanyPermanent({ id: companyId, password }).unwrap();
+      } else {
+        await deleteCompany({ id: companyId, password }).unwrap();
+      }
+
+      setShowDeletePassword({ status: false, companyId: '', isPermanent: false });
+      loadFirms()
+    } catch (error) {
+      console.error('Failed to delete company:', error);
+      alert('Ошибка при удалении компании. Проверьте пароль или код 2FA.');
+    }
+  };
+
+  function mapCompanyToFirm(company: any) {
+    const stations = company.stations || [];
+
+    const totalProcessors = stations.reduce((sum: number, s: any) => sum + (s.procCount || 0), 0);
+    const totalPistols = stations.reduce((sum: number, s: any) => sum + (s.pistolCount || 0), 0);
+    const avgDiscount =
+      stations.length > 0
+        ? stations.reduce((sum: number, s: any) => sum + (s.discount || 0), 0) / stations.length
+        : 0;
+
+    const oldestSyncDate = stations.reduce((min: Date, s: any) => {
+      const date = new Date(s.synchronize);
+      return date < min ? date : min;
+    }, new Date());
+
+    const statuses = stations.map((s: any) => s.status?.toLowerCase());
+    let status: 'active' | 'mixed' | 'inactive' = 'inactive';
+    if (statuses.every((s: string) => s === 'active')) status = 'active';
+    else if (statuses.some((s: string) => s === 'active')) status = 'mixed';
+    console.log(company)
+    return {
+      id: company.id,
+      firmName: company.name,
+      ownerName: company.ownerContact.name || '—',
+      totalSum: 0,
+      totalProcessors,
+      totalPistols,
+      avgDiscount,
+      prepayment: 0,
+      oldestSyncDate,
+      status,
+      isDeleted: company.isDeleted,
+      ownerPhone: company.ownerContact.value,
+      stations: stations.map((s: any) => ({
+        id: s.id,
+        address: s.address,
+        city: s.city,
+        country: s.country,
+        procCount: s.procCount,
+        pistolCount: s.pistolCount,
+        discount: s.discount,
+        synchronize: s.synchronize,
+        responsibleName: company.responsibleContact.name || '',
+        responsibleContact: company.responsibleContact.value,
+        firmContacts: new Array(company.ownerContact.value, company.responsibleContact.value),
+        selectedFuelTypes: s.stationsOnFuels
+      }))
+    };
+  }
 
   useEffect(() => {
-    loadFirms();
-  }, []);
+    loadFirms()
+  }, [companiesData])
 
   const loadFirms = () => {
-    const loadedFirms = AppStore.getFirms();
-    setFirms(loadedFirms);
-    
-    // Generate events for all stations
-    loadedFirms.forEach(firm => {
-      firm.stations.forEach(station => {
-        const events = EventGenerator.generateEventsForStation(station);
-        events.forEach(event => AppStore.saveEvent(event));
-      });
-    });
+    if (companiesData?.data) {
+      console.log(companiesData)
+      const mapped = companiesData.data.map(mapCompanyToFirm);
+      setFirms(mapped);
+    }
   };
 
   const filteredFirms = firms.filter(firm => {
@@ -83,11 +162,11 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const sortedFirms = [...filteredFirms].sort((a, b) => {
     let aVal: any = a[sortField as keyof Firm];
     let bVal: any = b[sortField as keyof Firm];
-    
+
     if (typeof aVal === 'string') {
       return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     }
-    
+
     return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
   });
 
@@ -130,6 +209,18 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
     const events = AppStore.getEvents();
     return events.filter(e => e.firmName === firmName && !e.read).length;
   };
+
+  async function handleSendMessage(companyId: string, message: string) {
+    try {
+      const response = await sendMessage({ companyId, text: message })
+      console.log(response)
+      if (response.data?.isSuccess) {
+        setShowSendMessage({ status: false, companyId: '' })
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -201,7 +292,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
               </TableHeader>
               <TableBody>
                 {sortedFirms.map((firm, index) => {
-                  const hasMultipleResponsibles = firm.stations.some(s => s.responsibleName) && 
+                  const hasMultipleResponsibles = firm.stations.some(s => s.responsibleName) &&
                     new Set(firm.stations.map(s => s.responsibleName)).size > 1;
                   const hasMultipleCountries = new Set(firm.stations.map(s => s.country)).size > 1;
                   const hasMultipleCities = new Set(firm.stations.map(s => s.city)).size > 1;
@@ -215,7 +306,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                       <TableCell>{firm.ownerName}</TableCell>
                       <TableCell>
                         {hasMultipleResponsibles ? (
-                          <button 
+                          <button
                             onClick={() => setShowContacts(firm)}
                             className="text-blue-600 hover:underline"
                           >
@@ -253,15 +344,22 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {/* Phone logic */}}>
-                              <Phone className="w-4 h-4 mr-2" />
-                              Звонок
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {/* Message logic */}}>
+                            <a href={`tel:${firm.ownerPhone}`}>
+                              <DropdownMenuItem>
+                                <Phone className="w-4 h-4 mr-2" />
+                                Звонок
+                              </DropdownMenuItem>
+                            </a>
+                            <DropdownMenuItem onClick={() => {
+                              setShowSendMessage({
+                                status: true,
+                                companyId: firm.id
+                              })
+                            }}>
                               <MessageSquare className="w-4 h-4 mr-2" />
                               Сообщение
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEvents(true)}>
+                            <DropdownMenuItem onClick={() => setShowEvents({ status: true, company: firm })}>
                               <Bell className="w-4 h-4 mr-2" />
                               События {unreadCount > 0 && `(${unreadCount})`}
                             </DropdownMenuItem>
@@ -272,13 +370,15 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                               <Edit className="w-4 h-4 mr-2" />
                               Редактировать
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {/* Sync logic */}}>
+                            <DropdownMenuItem onClick={() => {/* Sync logic */ }}>
                               <RefreshCw className="w-4 h-4 mr-2" />
                               Синхронизация Оплаты
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {/* Delete logic */}} className="text-red-600">
+                            <DropdownMenuItem onClick={() => {
+                              setShowDeletePassword({ status: true, companyId: firm.id, isPermanent: firm.isDeleted });
+                            }} className="text-red-600">
                               <Trash2 className="w-4 h-4 mr-2" />
-                              Удалить
+                              {firm.isDeleted ? 'Удалить предоплату' : 'Удалить'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -291,6 +391,17 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
           </div>
         </div>
       </div>
+
+      {showDeletePassword.status && (
+        <DeleteCompanyDialog
+          companyId={showDeletePassword.companyId}
+          isPermanent={showDeletePassword.isPermanent}
+          onClose={() => setShowDeletePassword({ status: false, companyId: '', isPermanent: false })}
+          onSave={(password: string) => {
+            handleDeleteCompany(showDeletePassword.companyId, password, showDeletePassword.isPermanent)
+          }}
+        />
+      )}
 
       {showAddClient && (
         <AddClientDialog
@@ -314,12 +425,25 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
             setShowEditClient(false);
             setSelectedFirm(null);
           }}
+          onMessageClick={() => {
+            setShowEditClient(false)
+
+            setShowSendMessage({
+              status: true,
+              companyId: selectedFirm.id
+            })
+          }}
+          onEventsClick={() => {
+            setShowEditClient(false)
+            setShowEvents({ status: true, company: selectedFirm })
+          }}
         />
       )}
 
-      {showEvents && (
+      {showEvents.status && (
         <EventsDialog
-          onClose={() => setShowEvents(false)}
+          company={showEvents.company}
+          onClose={() => setShowEvents((prev) => ({ ...prev, status: false }))}
         />
       )}
 
@@ -329,6 +453,15 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
           onClose={() => setShowContacts(null)}
         />
       )}
+
+      {
+        showSendMessage.status && (
+          <MessageDialog
+            onSave={(message: string) => handleSendMessage(showSendMessage.companyId, message)}
+            onClose={() => setShowSendMessage((prev) => ({ ...prev, status: false }))}
+          />
+        )
+      }
     </div>
   );
 }

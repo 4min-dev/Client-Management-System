@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Alert, AlertDescription } from './ui/alert';
 import { Lock, User, Shield } from 'lucide-react';
 import { useGenerate2faQuery, useLogin2faMutation, useLoginMutation } from '../services/authService';
+import { RootState } from '../lib/types';
 
 type LoginPageProps = {
   onLogin: () => void
@@ -67,7 +68,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       setLoading(true);
 
       const response = await handle2faLogin({ code: twoFactorCode, userId: generated2fa?.data?.id })
-      console.log(response)
 
       if (response?.data?.data?.accessToken) {
         sessionStorage.setItem('accessToken', response.data.data.accessToken)
@@ -91,10 +91,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     //   }
     // }, 500);
   };
-
-  useEffect(() => {
-    console.log(generated2fa)
-  }, [generated2fa])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

@@ -4,6 +4,14 @@ export type Currency = 'AMD' | 'RUB' | 'USD' | 'EUR' | 'GEL';
 
 export type StationStatus = 'active' | 'mixed' | 'inactive';
 
+export interface Fuel {
+  assignedAt: Date,
+  fuel: FuelType,
+  fuelId: string,
+  id: string,
+  stationId: string
+}
+
 export interface Station {
   id: string;
   firmName: string;
@@ -28,7 +36,8 @@ export interface Station {
   desktopKey?: string;
   processorKey?: string;
   protectionKey?: string;
-  
+  responsibleContact?: string
+
   // Details (Form 8)
   shiftChangeEvents: 0 | 1;
   calibrationChangeEvents: 0 | 1;
@@ -37,11 +46,13 @@ export interface Station {
   fixShiftCount: 0 | 1;
   receiptCoefficient: 0 | 1;
   seasonCount: 1 | 2 | 3 | 4;
-  
-  selectedFuelTypes: number[];
+
+  selectedFuelTypes: Fuel[];
+  stationsOnFuels: Fuel[]
 }
 
 export interface Firm {
+  id: string,
   firmName: string;
   ownerName: string;
   stations: Station[];
@@ -52,10 +63,12 @@ export interface Firm {
   status: StationStatus;
   oldestSyncDate: Date;
   prepayment: number;
+  ownerPhone: string;
+  isDeleted: boolean
 }
 
 export interface FuelType {
-  id: number;
+  id: string;
   name: string;
 }
 
@@ -110,4 +123,17 @@ export interface ServerResponse1 {
 export interface ServerResponse2 {
   licenseEndDate: string;
   serverDate: string;
+}
+
+export interface RootState {
+  userSlice: {
+    user: {
+      twoFASecret: string,
+    }
+  }
+}
+
+export interface User {
+  id: '',
+  login: ''
 }

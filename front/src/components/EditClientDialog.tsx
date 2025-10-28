@@ -15,14 +15,14 @@ import {
 import { AppStore } from '../lib/store';
 import { ServerAPI } from '../lib/api';
 import type { Firm, Station } from '../lib/types';
-import { 
-  Phone, 
-  MessageSquare, 
-  Bell, 
-  Settings, 
-  Edit, 
-  Trash2, 
-  Lock, 
+import {
+  Phone,
+  MessageSquare,
+  Bell,
+  Settings,
+  Edit,
+  Trash2,
+  Lock,
   Unlock,
   Key
 } from 'lucide-react';
@@ -32,9 +32,11 @@ interface EditClientDialogProps {
   firm: Firm;
   onClose: () => void;
   onSave: () => void;
+  onMessageClick: () => void;
+  onEventsClick: () => void
 }
 
-export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProps) {
+export function EditClientDialog({ firm, onClose, onSave, onMessageClick, onEventsClick }: EditClientDialogProps) {
   const [editMode, setEditMode] = useState(false);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -69,14 +71,14 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
 
     station.prepayment += remainingAmount;
     AppStore.saveStation(station);
-    
+
     await ServerAPI.sendLicenseDate(station.id, station.licenseDate);
     onSave();
   };
 
   const handleDelete = async (station: Station) => {
     if (!confirm('Вы уверены, что хотите удалить эту станцию?')) return;
-    
+
     // Password prompt (simplified for demo)
     const password = prompt('Введите пароль для подтверждения:');
     if (password !== 'admin') {
@@ -90,7 +92,7 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
     const daysRemaining = daysInMonth - now.getDate();
     const dailyRate = station.monthlySum / daysInMonth;
     station.prepayment += dailyRate * daysRemaining;
-    
+
     AppStore.deleteStation(station.id);
     onSave();
   };
@@ -112,7 +114,7 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
 
   const handleKeyGeneration = async (station: Station, type: 'desktop' | 'processor' | 'protection') => {
     if (!confirm(`Сгенерировать новый ключ ${type}?`)) return;
-    
+
     let key: string;
     switch (type) {
       case 'desktop':
@@ -128,7 +130,7 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
         station.protectionKey = key;
         break;
     }
-    
+
     AppStore.saveStation(station);
     onSave();
   };
@@ -161,7 +163,7 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
               <Checkbox
                 id="editMode"
                 checked={editMode}
-                onCheckedChange={(checked) => setEditMode(checked as boolean)}
+                onCheckedChange={(checked: boolean) => setEditMode(checked as boolean)}
               />
               <Label htmlFor="editMode" className="cursor-pointer">
                 Режим редактирования
@@ -244,18 +246,20 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
                     <TableCell className="text-sm">{formatDate(station.syncDate)}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <Button size="sm" variant="ghost" title="Звонок">
-                          <Phone className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="ghost" title="Сообщение">
+                        <a href={`tel:${station.responsibleContact}`}>
+                          <Button size="sm" variant="ghost" title="Звонок">
+                            <Phone className="w-4 h-4" />
+                          </Button>
+                        </a>
+                        <Button size="sm" variant="ghost" title="Сообщение" onClick={onMessageClick}>
                           <MessageSquare className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" title="События">
+                        <Button size="sm" variant="ghost" title="События" onClick={onEventsClick}>
                           <Bell className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           title="Компоненты"
                           onClick={() => {
                             setSelectedStation(station);
@@ -264,17 +268,17 @@ export function EditClientDialog({ firm, onClose, onSave }: EditClientDialogProp
                         >
                           <Settings className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           title="MAC адрес"
                           onClick={() => handleMacRequest(station)}
                         >
                           <Key className="w-4 h-4" />
                         </Button>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           title="Удалить"
                           onClick={() => handleDelete(station)}
                         >

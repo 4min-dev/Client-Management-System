@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { User } from '../lib/types';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 type UserAuthData = {
@@ -18,7 +19,7 @@ export const authService = createApi({
             })
         }),
 
-        userAuth: builder.query<any, void>({
+        userAuth: builder.query<{ data: User, isSuccess: boolean }, void>({
             query: () => ({
                 url: 'whoami',
                 method: 'GET',

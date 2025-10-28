@@ -10,25 +10,61 @@ import {
   TableRow,
 } from './ui/table';
 import { AppStore } from '../lib/store';
-import type { Event } from '../lib/types';
+import type { Event, Firm } from '../lib/types';
 import { CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { useGetEventsQuery, useMakeAsReadMutation } from '../services/eventService';
 
 interface EventsDialogProps {
+  company: Firm | null;
   firmName?: string;
   onClose: () => void;
 }
 
-export function EventsDialog({ firmName, onClose }: EventsDialogProps) {
+export function EventsDialog({ company, firmName, onClose }: EventsDialogProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [handleMarkAsRead] = useMakeAsReadMutation()
+
+  const stationQueries = company?.stations?.map(station =>
+    useGetEventsQuery({
+      stationId: station.id
+    }, {
+      skip: !station.id
+    })
+  ) || [];
 
   useEffect(() => {
-    let allEvents = AppStore.getEvents();
-    if (firmName) {
-      allEvents = allEvents.filter(e => e.firmName === firmName);
+    if (stationQueries.length > 0) {
+      const allEvents: Event[] = [];
+
+      stationQueries.forEach(query => {
+        if (query?.data) {
+          const mappedEvents = query.data.data.map((event: any) => ({
+            id: event.id,
+            firmName: event.station?.company?.name || firmName || '',
+            eventName: event.message || '',
+            eventType: event.type,
+            ownerName: event.station?.company?.ownerContact?.name || '',
+            responsible: event.station?.responsibleName || '',
+            country: event.station?.country || '',
+            city: event.station?.city || '',
+            address: event.station?.address || '',
+            date: new Date(event.createdAt),
+            read: event.viewed || false,
+          }));
+          allEvents.push(...mappedEvents);
+        }
+      });
+
+      const sortedEvents = allEvents.sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      setEvents(sortedEvents);
+    } else {
+      setEvents([]);
     }
-    setEvents(allEvents);
-  }, [firmName]);
+  }, [stationQueries, firmName, handleMarkAsRead]);
 
   const filteredEvents = events.filter(event => {
     const search = searchTerm.toLowerCase();
@@ -40,19 +76,21 @@ export function EventsDialog({ firmName, onClose }: EventsDialogProps) {
     );
   });
 
-  const handleMarkAsRead = (id: string) => {
-    AppStore.markEventAsRead(id);
-    const allEvents = AppStore.getEvents();
-    setEvents(firmName ? allEvents.filter(e => e.firmName === firmName) : allEvents);
-  };
-
   const getEventIcon = (eventType: string) => {
     switch (eventType) {
       case 'license':
+      case 'LICENSE_EXPIRE_SOON_3DAYS':
+      case 'LICENSE_EXPIRE_SOON_1DAY':
+      case 'LICENSE_EXPIRED':
         return <AlertCircle className="w-5 h-5 text-yellow-600" />;
       case 'sync':
+      case 'SYNC_MISSING_1DAY':
+      case 'SYNC_MISSING_2DAYS':
+      case 'SYNC_MISSING_3DAYS':
         return <XCircle className="w-5 h-5 text-red-600" />;
       case 'block':
+      case 'LICENSE_BLOCK_PARTIAL':
+      case 'LICENSE_BLOCK_FULL':
         return <XCircle className="w-5 h-5 text-red-700" />;
       default:
         return <CheckCircle className="w-5 h-5 text-gray-600" />;
@@ -108,7 +146,7 @@ export function EventsDialog({ firmName, onClose }: EventsDialogProps) {
                   </TableRow>
                 ) : (
                   filteredEvents.map((event, index) => (
-                    <TableRow 
+                    <TableRow
                       key={event.id}
                       className={event.read ? 'opacity-50' : 'bg-blue-50'}
                       onClick={() => !event.read && handleMarkAsRead(event.id)}

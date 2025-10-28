@@ -16,7 +16,7 @@ export class AppStore {
     const data = localStorage.getItem(STORAGE_KEYS.STATIONS);
     return data ? JSON.parse(data, this.dateReviver) : this.getDefaultStations();
   }
-  
+
   static saveStation(station: Station): void {
     const stations = this.getStations();
     const index = stations.findIndex(s => s.id === station.id);
@@ -27,17 +27,17 @@ export class AppStore {
     }
     localStorage.setItem(STORAGE_KEYS.STATIONS, JSON.stringify(stations));
   }
-  
+
   static deleteStation(id: string): void {
     const stations = this.getStations().filter(s => s.id !== id);
     localStorage.setItem(STORAGE_KEYS.STATIONS, JSON.stringify(stations));
   }
-  
+
   // Group stations by firm
   static getFirms(): Firm[] {
     const stations = this.getStations();
     const firmMap = new Map<string, Station[]>();
-    
+
     stations.forEach(station => {
       const key = station.firmName;
       if (!firmMap.has(key)) {
@@ -45,24 +45,24 @@ export class AppStore {
       }
       firmMap.get(key)!.push(station);
     });
-    
+
     const firms: Firm[] = [];
     firmMap.forEach((stationList, firmName) => {
       const totalSum = stationList.reduce((sum, s) => sum + this.convertToAMD(s.monthlySum, s.currency), 0);
       const totalProcessors = stationList.reduce((sum, s) => sum + s.processorCount, 0);
       const totalPistols = stationList.reduce((sum, s) => sum + s.pistolCount, 0);
       const avgDiscount = stationList.reduce((sum, s) => sum + s.discount, 0) / stationList.length;
-      
+
       const activeCount = stationList.filter(s => new Date(s.licenseDate) > new Date()).length;
       let status: 'active' | 'mixed' | 'inactive' = 'active';
       if (activeCount === 0) status = 'inactive';
       else if (activeCount < stationList.length) status = 'mixed';
-      
-      const oldestSyncDate = stationList.reduce((oldest, s) => 
+
+      const oldestSyncDate = stationList.reduce((oldest, s) =>
         new Date(s.syncDate) < new Date(oldest) ? s.syncDate : oldest, stationList[0].syncDate);
-      
+
       const prepayment = stationList.reduce((sum, s) => sum + s.prepayment, 0);
-      
+
       firms.push({
         firmName,
         ownerName: stationList[0].ownerName,
@@ -76,16 +76,16 @@ export class AppStore {
         prepayment
       });
     });
-    
+
     return firms;
   }
-  
+
   // Fuel Types
   static getFuelTypes(): FuelType[] {
     const data = localStorage.getItem(STORAGE_KEYS.FUEL_TYPES);
     return data ? JSON.parse(data) : this.getDefaultFuelTypes();
   }
-  
+
   static saveFuelType(fuelType: FuelType): void {
     const fuelTypes = this.getFuelTypes();
     const index = fuelTypes.findIndex(f => f.id === fuelType.id);
@@ -96,23 +96,23 @@ export class AppStore {
     }
     localStorage.setItem(STORAGE_KEYS.FUEL_TYPES, JSON.stringify(fuelTypes));
   }
-  
+
   static deleteFuelType(id: number): boolean {
     const stations = this.getStations();
     const inUse = stations.some(s => s.selectedFuelTypes.includes(id));
     if (inUse) return false;
-    
+
     const fuelTypes = this.getFuelTypes().filter(f => f.id !== id);
     localStorage.setItem(STORAGE_KEYS.FUEL_TYPES, JSON.stringify(fuelTypes));
     return true;
   }
-  
+
   // Currency Rates
   static getCurrencyRates(): CurrencyRate[] {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENCY_RATES);
     return data ? JSON.parse(data) : this.getDefaultCurrencyRates();
   }
-  
+
   static saveCurrencyRate(rate: CurrencyRate): void {
     const rates = this.getCurrencyRates();
     const index = rates.findIndex(r => r.currency === rate.currency);
@@ -123,19 +123,19 @@ export class AppStore {
     }
     localStorage.setItem(STORAGE_KEYS.CURRENCY_RATES, JSON.stringify(rates));
   }
-  
+
   // Events
   static getEvents(): Event[] {
     const data = localStorage.getItem(STORAGE_KEYS.EVENTS);
     return data ? JSON.parse(data, this.dateReviver) : [];
   }
-  
+
   static saveEvent(event: Event): void {
     const events = this.getEvents();
     events.unshift(event);
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
   }
-  
+
   static markEventAsRead(id: string): void {
     const events = this.getEvents();
     const event = events.find(e => e.id === id);
@@ -144,7 +144,7 @@ export class AppStore {
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
     }
   }
-  
+
   // Helper: Convert currency to AMD
   static convertToAMD(amount: number, currency: string): number {
     if (currency === 'AMD') return amount;
@@ -152,7 +152,7 @@ export class AppStore {
     const rate = rates.find(r => r.currency === currency);
     return rate ? amount * rate.rate : amount;
   }
-  
+
   // Helper: Generate ID
   static generateID(): string {
     const now = new Date();
@@ -161,7 +161,7 @@ export class AppStore {
     const random = Math.floor(Math.random() * 9000) + 251;
     return `${month}${year}${random}`;
   }
-  
+
   // Date reviver for JSON.parse
   private static dateReviver(key: string, value: any): any {
     if (key === 'licenseDate' || key === 'syncDate' || key === 'date' || key === 'oldestSyncDate') {
@@ -169,7 +169,7 @@ export class AppStore {
     }
     return value;
   }
-  
+
   // Default data
   private static getDefaultStations(): Station[] {
     const now = new Date();
@@ -177,11 +177,11 @@ export class AppStore {
     const recentDate = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000); // 15 days ahead (approaching deadline)
     const expiredDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000); // 10 days ago (expired)
     const veryExpiredDate = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000); // 45 days ago
-    
+
     const recentSync = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
     const oldSync = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000); // 5 days ago
     const veryOldSync = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000); // 15 days ago
-    
+
     return [
       // Petrol Plus - Large active network
       {
@@ -283,7 +283,7 @@ export class AppStore {
         seasonCount: 2,
         selectedFuelTypes: [2, 3, 7, 8]
       },
-      
+
       // Eco Fuel - Medium network with mixed status
       {
         id: '09244001',
@@ -351,7 +351,7 @@ export class AppStore {
         seasonCount: 2,
         selectedFuelTypes: [3, 4, 7, 8]
       },
-      
+
       // АвтоГаз Сочи - Russian station with RUB
       {
         id: '08235678',
@@ -419,7 +419,7 @@ export class AppStore {
         seasonCount: 2,
         selectedFuelTypes: [2, 3, 4, 7, 8]
       },
-      
+
       // Tbilisi Fuel Co - Georgian station with GEL
       {
         id: '07248899',
@@ -454,7 +454,7 @@ export class AppStore {
         seasonCount: 2,
         selectedFuelTypes: [2, 3, 4, 5, 7, 8]
       },
-      
+
       // Ararat Oil - Small independent station
       {
         id: '10251234',
@@ -486,7 +486,7 @@ export class AppStore {
         seasonCount: 1,
         selectedFuelTypes: [2, 3, 7]
       },
-      
+
       // Fast Fuel - Expired station needing attention
       {
         id: '06239876',
@@ -521,7 +521,7 @@ export class AppStore {
         seasonCount: 1,
         selectedFuelTypes: [2, 3, 7, 8]
       },
-      
+
       // Premium Station - High-end with USD pricing
       {
         id: '10259999',
@@ -556,7 +556,7 @@ export class AppStore {
         seasonCount: 4,
         selectedFuelTypes: [2, 3, 4, 5, 6, 7, 8, 9]
       },
-      
+
       // Diesel Pro - Specialized diesel station
       {
         id: '09247777',
@@ -590,7 +590,7 @@ export class AppStore {
       }
     ];
   }
-  
+
   private static getDefaultFuelTypes(): FuelType[] {
     return [
       { id: 1, name: "Ռեգուլար" },
@@ -604,7 +604,7 @@ export class AppStore {
       { id: 9, name: "Super" }
     ];
   }
-  
+
   private static getDefaultCurrencyRates(): CurrencyRate[] {
     return [
       { currency: 'AMD', rate: 1, pricePerPistol: 5000 },

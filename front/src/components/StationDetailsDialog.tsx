@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -6,7 +6,9 @@ import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { AppStore } from '../lib/store';
 import { ServerAPI } from '../lib/api';
-import type { Station } from '../lib/types';
+import type { Fuel, Station } from '../lib/types';
+import { useGetStationOptionsQuery } from '../services/stationService';
+import { updateCryptoKey } from '../utils/crypto';
 
 interface StationDetailsDialogProps {
   station: Station;
@@ -15,15 +17,63 @@ interface StationDetailsDialogProps {
 }
 
 export function StationDetailsDialog({ station, onClose, onSave }: StationDetailsDialogProps) {
-  const [details, setDetails] = useState({
-    shiftChangeEvents: station.shiftChangeEvents,
-    calibrationChangeEvents: station.calibrationChangeEvents,
-    seasonChangeEvents: station.seasonChangeEvents,
-    fixShiftCount: station.fixShiftCount,
-    receiptCoefficient: station.receiptCoefficient,
-    seasonCount: station.seasonCount,
-    selectedFuelTypes: station.selectedFuelTypes
+  const CRYPTO_KEY = 'fdc6e5ce730dd3945404621e179e126f';
+  const STATION_ID = '154949be-4365-4d38-86ac-24caf4368d8c';
+  const MAC_ADDRESS = '00:1A:2B:3C:4D:5E';
+
+  const { data, error, isLoading, refetch } = useGetStationOptionsQuery(
+    { stationId: STATION_ID, cryptoKey: CRYPTO_KEY },
+    { skip: !CRYPTO_KEY }
+  );
+
+  useEffect(() => {
+    if (data && data?.metadata?.needUpdate?.key) {
+      console.log('Ключ устарел — обновляем...');
+      updateCryptoKey(STATION_ID, MAC_ADDRESS)
+        .then(() => {
+          console.log('Ключ обновлён — перезагружаем опции');
+          refetch();
+        })
+        .catch(console.error);
+    }
+  }, [data]);
+
+  const [details, setDetails] = useState<{
+    shiftChangeEvents: 0 | 1,
+    calibrationChangeEvents: 0 | 1,
+    seasonChangeEvents: 0 | 1,
+    fixShiftCount: 0 | 1,
+    receiptCoefficient: 0 | 1,
+    seasonCount: 1 | 2 | 3 | 4,
+    selectedFuelTypes: Fuel[]
+  }>({
+    shiftChangeEvents: 0,
+    calibrationChangeEvents: 0,
+    seasonChangeEvents: 0,
+    fixShiftCount: 0,
+    receiptCoefficient: 0,
+    seasonCount: 1,
+    selectedFuelTypes: []
   });
+
+  useEffect(() => {
+    console.log(station)
+    if (!data || !station.selectedFuelTypes) return
+
+    setDetails({
+      shiftChangeEvents: data?.shiftChangeEvents,
+      calibrationChangeEvents: data?.calibrationChangeEvents,
+      seasonChangeEvents: data?.seasonChangeEvents,
+      fixShiftCount: data?.fixShiftCount,
+      receiptCoefficient: data?.receiptCoefficient,
+      seasonCount: data?.seasonCount,
+      selectedFuelTypes: station.selectedFuelTypes
+    })
+  }, [data])
+
+  useEffect(() => {
+    console.log(details)
+  }, [details])
 
   const fuelTypes = AppStore.getFuelTypes();
   const [showFuelSelection, setShowFuelSelection] = useState(false);
@@ -74,14 +124,14 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
   };
 
   const toggleFuelType = (id: number) => {
-    const current = [...details.selectedFuelTypes];
-    const index = current.indexOf(id);
-    if (index >= 0) {
-      current.splice(index, 1);
-    } else {
-      current.push(id);
-    }
-    setDetails({ ...details, selectedFuelTypes: current });
+    // const current = [...details.selectedFuelTypes];
+    // const index = current.indexOf(id);
+    // if (index >= 0) {
+    //   current.splice(index, 1);
+    // } else {
+    //   current.push(id);
+    // }
+    // setDetails({ ...details, selectedFuelTypes: current });
   };
 
   return (
@@ -99,7 +149,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             <Checkbox
               id="shiftChangeEvents"
               checked={details.shiftChangeEvents === 1}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked: boolean) =>
                 setDetails({ ...details, shiftChangeEvents: checked ? 1 : 0 })
               }
             />
@@ -112,7 +162,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             <Checkbox
               id="calibrationChangeEvents"
               checked={details.calibrationChangeEvents === 1}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked: boolean) =>
                 setDetails({ ...details, calibrationChangeEvents: checked ? 1 : 0 })
               }
             />
@@ -125,7 +175,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             <Checkbox
               id="seasonChangeEvents"
               checked={details.seasonChangeEvents === 1}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked: boolean) =>
                 setDetails({ ...details, seasonChangeEvents: checked ? 1 : 0 })
               }
             />
@@ -138,7 +188,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             <Checkbox
               id="fixShiftCount"
               checked={details.fixShiftCount === 1}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked: boolean) =>
                 setDetails({ ...details, fixShiftCount: checked ? 1 : 0 })
               }
             />
@@ -151,7 +201,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             <Checkbox
               id="receiptCoefficient"
               checked={details.receiptCoefficient === 1}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked: boolean) =>
                 setDetails({ ...details, receiptCoefficient: checked ? 1 : 0 })
               }
             />
@@ -169,15 +219,15 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             >
               {showFuelSelection ? 'Скрыть' : 'Выбрать'} типы топлива
             </Button>
-            
+
             {showFuelSelection && (
               <div className="border rounded p-4 space-y-2">
                 {fuelTypes.map(fuel => (
                   <div key={fuel.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`fuel-${fuel.id}`}
-                      checked={details.selectedFuelTypes.includes(fuel.id)}
-                      onCheckedChange={() => toggleFuelType(fuel.id)}
+                      checked={details.selectedFuelTypes.some(fuelType => fuelType.fuelId === fuel.id)}
+                    // onCheckedChange={() => toggleFuelType(fuel.id)}
                     />
                     <Label htmlFor={`fuel-${fuel.id}`} className="cursor-pointer">
                       {fuel.name}
@@ -190,9 +240,9 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
 
           <div className="space-y-2">
             <Label>Количество Сезонов (-10% за каждый дополнительный)</Label>
-            <Select 
-              value={details.seasonCount.toString()} 
-              onValueChange={(v) => setDetails({ ...details, seasonCount: parseInt(v) as 1 | 2 | 3 | 4 })}
+            <Select
+              value={details.seasonCount.toString()}
+              onValueChange={(v: string) => setDetails({ ...details, seasonCount: parseInt(v) as 1 | 2 | 3 | 4 })}
             >
               <SelectTrigger>
                 <SelectValue />
