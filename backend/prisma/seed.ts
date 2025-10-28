@@ -7,7 +7,7 @@ import { seedContacts } from './seeds/contacts';
 import { seedCompanies } from './seeds/companies';
 import { seedStations } from './seeds/stations';
 import { seedStationsOnFuels } from './seeds/stationOnFuels';
-import { seedOptionsStations } from './seeds/stationsOptions';
+import { seedStationsOptions } from './seeds/stationsOptions';
 
 const prisma = new PrismaClient();
 
@@ -21,7 +21,7 @@ async function main() {
 
   await seedUsers();
 
-  await seedOptionsStations();
+  await seedStationsOptions();
 
   await seedStations();
 

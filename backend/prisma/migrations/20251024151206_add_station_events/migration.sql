@@ -1,0 +1,18 @@
+-- CreateEnum
+CREATE TYPE "EventType" AS ENUM ('LICENSE_EXPIRE_SOON_3DAYS', 'LICENSE_EXPIRE_SOON_1DAY', 'LICENSE_EXPIRED', 'LICENSE_BLOCK_PARTIAL', 'LICENSE_BLOCK_FULL', 'SYNC_MISSING_1DAY', 'SYNC_MISSING_2DAYS', 'SYNC_MISSING_3DAYS', 'PROCESSOR_OFFLINE');
+
+-- CreateTable
+CREATE TABLE "station_events" (
+    "id" TEXT NOT NULL,
+    "type" "EventType" NOT NULL,
+    "message" TEXT NOT NULL,
+    "stationId" TEXT NOT NULL,
+    "viewed" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "station_events_pkey" PRIMARY KEY ("id")
+);
+
+-- AddForeignKey
+ALTER TABLE "station_events" ADD CONSTRAINT "station_events_stationId_fkey" FOREIGN KEY ("stationId") REFERENCES "stations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

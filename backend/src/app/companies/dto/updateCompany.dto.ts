@@ -14,4 +14,6 @@ export class UpdateCompanyDto {
   @ApiProperty()
   @IsString()
   description?: string;
+
+    responsibleName?: string;
 }

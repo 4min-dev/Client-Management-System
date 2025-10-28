@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "companies" ADD COLUMN     "isDeleted" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "prepayment" DOUBLE PRECISION NOT NULL DEFAULT 0;

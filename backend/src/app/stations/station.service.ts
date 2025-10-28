@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { StationCryptoKey, StationStatus } from '@prisma/client';
 import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
 import * as dayjs from 'dayjs';
-import prisma from 'prisma/prisma';
+import { PrismaService } from 'prisma/prisma.service';
 import fuel from 'prisma/seeds/data/fuel';
 import { CryptoService } from 'src/app/crypto/crypto.service';
 import { promisify } from 'util';
@@ -19,6 +19,7 @@ import { CreateCompanyDto } from '../companies/dto/createCompany.dto';
 @Injectable()
 export class StationService {
   constructor(
+    private readonly prisma: PrismaService,
     private cryptoService: CryptoService,
     private configService: ConfigService,
     private companyService: CompanyService,
@@ -26,7 +27,7 @@ export class StationService {
   }
 
   getAll() {
-    return prisma.station.findMany({
+    return this.prisma.station.findMany({
       include: {
         stationsOnFuels: {
           include: {
@@ -50,7 +51,7 @@ export class StationService {
       company = await this.companyService.createCompany(createCompanyDto);
     }
 
-    let contact = await prisma.contact.create({
+    let contact = await this.prisma.contact.create({
       data: {
         isOwner: false,
         name: dto.contactName,
@@ -58,11 +59,11 @@ export class StationService {
       },
     });
 
-    let stationOptions = await prisma.stationsOptions.create({
+    let stationOptions = await this.prisma.stationsOptions.create({
       data: {},
     });
 
-    return prisma.station.create({
+    return this.prisma.station.create({
       data: {
         companyId: company.id,
         contactId: contact.id,
@@ -80,15 +81,15 @@ export class StationService {
   }
 
   getMessages(stationId: string) {
-    return prisma.stationMessages.findMany({ where: { stationId } });
+    return this.prisma.stationMessages.findMany({ where: { stationId } });
   }
 
   updateMessage(messageId: string, { view }: { view?: boolean }) {
-    return prisma.stationMessages.update({ where: { id: messageId }, data: { viewed: view } });
+    return this.prisma.stationMessages.update({ where: { id: messageId }, data: { viewed: view } });
   }
 
   createMessage(stationId: string, dto: CreateStationMessageDto) {
-    return prisma.stationMessages.create({
+    return this.prisma.stationMessages.create({
       data: {
         stationId: stationId,
         text: dto.text,
@@ -102,7 +103,7 @@ export class StationService {
     macAddress: string,
     key: string | undefined = undefined,
   ): Promise<StationCryptoKey> {
-    const station = await prisma.station.findFirst({
+    const station = await this.prisma.station.findFirst({
       where: {
         id: stationId,
       },
@@ -128,7 +129,7 @@ export class StationService {
 
     const keyExpires = this.configService.get<number>('CRYPTO_KEY_EXPIRES_IN');
 
-    const updatedStation = await prisma.station.update({
+    const updatedStation = await this.prisma.station.update({
       where: {
         id: stationId,
       },
@@ -158,7 +159,7 @@ export class StationService {
   }
 
   async findOne(stationId: string) {
-    const station = await prisma.station.findUnique({
+    const station = await this.prisma.station.findUnique({
       where: { id: stationId },
       include: { cryptoKey: true, stationsOptions: true },
     });
@@ -171,7 +172,7 @@ export class StationService {
   }
 
   async isKeyExpired(stationId: string): Promise<boolean> {
-    const station = await prisma.station.findUnique({
+    const station = await this.prisma.station.findUnique({
       where: { id: stationId },
       include: { cryptoKey: true, stationsOptions: true },
     });
@@ -184,7 +185,7 @@ export class StationService {
   }
 
   async findStationFuelsOne(stationId: string) {
-    const fuels = await prisma.station.findUnique({
+    const fuels = await this.prisma.station.findUnique({
       where: { id: stationId },
       include: {
         stationsOnFuels: {
@@ -206,6 +207,6 @@ export class StationService {
   }
 
   deleteFuel(stationId: string) {
-    return prisma.station.delete({ where: { id: stationId } });
+    return this.prisma.station.delete({ where: { id: stationId } });
   }
 }

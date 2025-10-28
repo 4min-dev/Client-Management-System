@@ -1,13 +1,15 @@
-import { Injectable } from '@nestjs/common';
-import { createCipheriv, createDecipheriv, randomBytes, pbkdf2 } from 'crypto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { createCipheriv, createDecipheriv, pbkdf2, randomBytes } from 'crypto';
 import { promisify } from 'util';
+import { compare, hash } from 'bcrypt';
+import prisma from 'prisma/prisma';
 
 @Injectable()
 export class CryptoService {
-  constructor() {}
+  constructor() { }
 
   async generateKey(length: number = 32) {
-    var bytes = randomBytes(Math.ceil(length / 2));
+    const bytes = randomBytes(Math.ceil(length / 2));
     return bytes.toString('hex').slice(0, length);
   }
 
@@ -16,14 +18,11 @@ export class CryptoService {
     salt: string = 'salt',
     keyLen: number = 32,
   ): Promise<Buffer> {
-    return await (
-      await promisify(pbkdf2)
-    )(password, salt, 10000, keyLen, 'sha256');
+    return await promisify(pbkdf2)(password, salt, 10000, keyLen, 'sha256');
   }
 
   async cryptData(message: string, key: string) {
     const iv = randomBytes(16);
-
     const byteKey = (await this.deriveKey(key, 'salt', 32)) as Buffer;
     const cipher = createCipheriv('aes-256-ctr', byteKey, iv);
 
@@ -49,5 +48,21 @@ export class CryptoService {
     ]);
 
     return decrypted.toString('utf-8');
+  }
+
+  async verifyPassword(password: string, userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    return compare(password, user.password);
+  }
+
+  async hashPassword(password: string): Promise<string> {
+    return hash(password, 10); // 10 — количество раундов для bcrypt
   }
 }

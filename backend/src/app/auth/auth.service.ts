@@ -47,6 +47,7 @@ export class AuthService {
       return {
         is2faJWT: true,
         accessToken: this.jwtService.sign(twoFAPayload),
+        twoFASecret: user.twoFASecret
       };
     }
 

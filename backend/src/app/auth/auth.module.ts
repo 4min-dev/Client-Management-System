@@ -35,5 +35,6 @@ import { AuthHelper } from 'src/infrastructure/auth/auth.helper';
     JwtStrategy,
     AuthHelper
   ],
+  exports: [JwtModule, AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

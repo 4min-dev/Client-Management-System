@@ -4,11 +4,11 @@ export class SynchronizeOptionsDto {
   pistolCount: number;
   procCount: number;
 
-  shiftNotificationEnabled: boolean;
-  calibrationNotificationEnabled: boolean;
-  seasonNotificationEnabled: boolean;
-  receiptCoefficientEnabled: boolean;
-  fixshiftNotificationEnabled: boolean;
+  shiftChangeEvents: number;
+  calibrationChangeEvents: number;
+  seasonChangeEvents: number;
+  receiptCoefficient: number;
+  fixShiftCount: number;
 
   seasonCount: number;
 
@@ -18,22 +18,22 @@ export class SynchronizeOptionsDto {
   constructor(
     pistolCount: number,
     procCount: number,
-    shiftNotificationEnabled: boolean,
-    calibrationNotificationEnabled: boolean,
-    seasonNotificationEnabled: boolean,
-    receiptCoefficientEnabled: boolean,
-    fixshiftNotificationEnabled: boolean,
+    shiftChangeEvents: number,
+    calibrationChangeEvents: number,
+    seasonChangeEvents: number,
+    receiptCoefficient: number,
+    fixShiftCount: number,
     seasonCount: number,
     currencyType: CurrencyType,
     currencyValue: number,
   ) {
     this.pistolCount = pistolCount;
     this.procCount = procCount;
-    this.shiftNotificationEnabled = shiftNotificationEnabled;
-    this.calibrationNotificationEnabled = calibrationNotificationEnabled;
-    this.seasonNotificationEnabled = seasonNotificationEnabled;
-    this.receiptCoefficientEnabled = receiptCoefficientEnabled;
-    this.fixshiftNotificationEnabled = fixshiftNotificationEnabled;
+    this.shiftChangeEvents = shiftChangeEvents;
+    this.calibrationChangeEvents = calibrationChangeEvents;
+    this.seasonChangeEvents = seasonChangeEvents;
+    this.receiptCoefficient = receiptCoefficient;
+    this.fixShiftCount = fixShiftCount;
     this.seasonCount = seasonCount;
     this.currencyType = currencyType;
     this.currencyValue = currencyValue;

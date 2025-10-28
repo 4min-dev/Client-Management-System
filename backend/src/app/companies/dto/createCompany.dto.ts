@@ -14,4 +14,6 @@ export class CreateCompanyDto {
   @ApiProperty()
   @IsString()
   ownerName?: string;
+
+  responsibleName?: string
 }

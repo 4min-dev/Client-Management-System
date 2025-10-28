@@ -1,23 +1,28 @@
+// prisma/seeds/stationsOptions.ts
 import prisma from '../prisma';
-import stationsOptions from './data/stationsOptions';
+import stations from './data/stations';
 
-export async function seedOptionsStations() {
+export async function seedStationsOptions() {
   await Promise.all(
-    stationsOptions.map(async (station, _) => {
+    stations.map(async (station) => {
       await prisma.stationsOptions.upsert({
-        where: {
-          id: station.id,
+        where: { id: station.stationsOptions.create.id },
+        update: {
+          shiftChangeEvents: station.stationsOptions.create.shiftChangeEvents,
+          calibrationChangeEvents: station.stationsOptions.create.calibrationChangeEvents,
+          seasonChangeEvents: station.stationsOptions.create.seasonChangeEvents,
+          receiptCoefficient: station.stationsOptions.create.receiptCoefficient,
+          fixShiftCount: station.stationsOptions.create.fixShiftCount,
+          seasonCount: station.stationsOptions.create.seasonCount,
         },
-        update: {},
         create: {
-          id: station.id,
-          shiftNotificationEnabled: station.shiftNotificationEnabled,
-          calibrationNotificationEnabled:
-            station.calibrationNotificationEnabled,
-          seasonNotificationEnabled: station.seasonNotificationEnabled,
-          receiptCoefficientEnabled: station.receiptCoefficientEnabled,
-          fixshiftNotificationEnabled: station.fixshiftNotificationEnabled,
-          seasonCount: station.seasonCount,
+          id: station.stationsOptions.create.id,
+          shiftChangeEvents: station.stationsOptions.create.shiftChangeEvents,
+          calibrationChangeEvents: station.stationsOptions.create.calibrationChangeEvents,
+          seasonChangeEvents: station.stationsOptions.create.seasonChangeEvents,
+          receiptCoefficient: station.stationsOptions.create.receiptCoefficient,
+          fixShiftCount: station.stationsOptions.create.fixShiftCount,
+          seasonCount: station.stationsOptions.create.seasonCount,
         },
       });
     }),
