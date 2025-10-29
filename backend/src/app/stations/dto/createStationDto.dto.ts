@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsString, IsOptional } from 'class-validator';
 import { CurrencyType } from '@prisma/client';
 
 export class CreateStationDto {
@@ -50,4 +50,14 @@ export class CreateStationDto {
   @ApiProperty()
   @IsString()
   contactDescription: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  ownerValue?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  responsibleValue?: string;
 }

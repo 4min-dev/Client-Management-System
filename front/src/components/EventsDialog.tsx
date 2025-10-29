@@ -15,12 +15,13 @@ import { CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { useGetEventsQuery, useMakeAsReadMutation } from '../services/eventService';
 
 interface EventsDialogProps {
+  handleCheckAsRead: () => void;
   company: Firm | null;
   firmName?: string;
   onClose: () => void;
 }
 
-export function EventsDialog({ company, firmName, onClose }: EventsDialogProps) {
+export function EventsDialog({ handleCheckAsRead, company, firmName, onClose }: EventsDialogProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [handleMarkAsRead] = useMakeAsReadMutation()
@@ -149,7 +150,12 @@ export function EventsDialog({ company, firmName, onClose }: EventsDialogProps) 
                     <TableRow
                       key={event.id}
                       className={event.read ? 'opacity-50' : 'bg-blue-50'}
-                      onClick={() => !event.read && handleMarkAsRead(event.id)}
+                      onClick={async () => {
+                        if (event.read) return
+
+                        await handleMarkAsRead(event.id)
+                        handleCheckAsRead()
+                      }}
                     >
                       <TableCell>{getEventIcon(event.eventType)}</TableCell>
                       <TableCell>{index + 1}</TableCell>

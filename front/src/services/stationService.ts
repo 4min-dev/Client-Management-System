@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { decryptData, encryptData } from '../utils/crypto';
-import { Fuel } from '../lib/types';
+import { Fuel, Station } from '../lib/types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -38,6 +38,23 @@ interface UpdateStationSyncArgs {
             seasonCount?: number;
         };
     };
+}
+
+interface StationForAddResponse {
+    companyName: string;
+    country: string;
+    city: string;
+    address: string;
+    procCount: number;
+    pistolCount: number;
+    currencyType: string;
+    discount: number;
+    ownerCompanyName: string;
+    ownerCompanyDescription: string;
+    contactName: string;
+    contactDescription: string;
+    ownerValue?: string;
+    responsibleValue?: string;
 }
 
 export const stationService = createApi({
@@ -90,11 +107,21 @@ export const stationService = createApi({
             }),
             invalidatesTags: ['Stations'],
         }),
+
+        addStation: builder.mutation<any, StationForAddResponse>({
+            query: (station) => ({
+                url: 'create',
+                method: 'PUT',
+                body: station
+            }),
+            invalidatesTags: ['Stations'],
+        })
     }),
 });
 
 export const {
     useGetStationOptionsQuery,
     useUpdateStationSyncMutation,
-    useDeleteStationMutation
+    useDeleteStationMutation,
+    useAddStationMutation
 } = stationService;

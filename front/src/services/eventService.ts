@@ -28,4 +28,4 @@ export const eventService = createApi({
     })
 })
 
-export const { useGetEventsQuery, useMakeAsReadMutation } = eventService
+export const { useGetEventsQuery, useMakeAsReadMutation, useLazyGetEventsQuery } = eventService

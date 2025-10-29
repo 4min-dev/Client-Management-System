@@ -42,6 +42,7 @@ import { MessageDialog } from './MessageDialog';
 import { DeleteCompanyDialog } from './DeleteCompanyDialog';
 import { useGetStationOptionsQuery } from '../services/stationService';
 import { updateCryptoKey } from '../utils/crypto';
+import { useGetEventsQuery, useLazyGetEventsQuery } from '../services/eventService';
 
 interface DashboardProps {
   onManageFuelTypes: () => void;
@@ -56,7 +57,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const [selectedFirm, setSelectedFirm] = useState<Firm | null>(null);
   const [showAddClient, setShowAddClient] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
-  const [showEvents, setShowEvents] = useState<{ status: boolean, company: Firm | null }>({ status: false, company: null });
+  const [showEvents, setShowEvents] = useState<{ status: boolean, company: Firm | null, isEventsRefetch: number }>({ status: false, company: null, isEventsRefetch: 0 });
   const [showContacts, setShowContacts] = useState<Firm | null>(null);
   const [showSendMessage, setShowSendMessage] = useState<{ status: boolean, companyId: string }>({
     status: false,
@@ -67,6 +68,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
     companyId: '',
     isPermanent: false,
   });
+  const [triggerGetEvents] = useLazyGetEventsQuery();
+  const [stationEvents, setStationEvents] = useState<Record<string, any[]>>({});
   const [sendMessage] = useSendMessageMutation();
   const [deleteCompany] = useDeleteCompanyMutation();
   const [deleteCompanyPermanent] = useDeleteCompanyPermanentMutation();
@@ -141,9 +144,9 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         pistolCount: s.pistolCount,
         discount: s.discount,
         synchronize: s.synchronize,
-        responsibleName: company.responsibleContact.name || '',
-        responsibleContact: company.responsibleContact.value,
-        firmContacts: new Array(company.ownerContact.value, company.responsibleContact.value),
+        responsibleName: company.responsibleContact ? company.responsibleContact.name : '',
+        responsibleContact: company.responsibleContact ? company.responsibleContact.value : '',
+        firmContacts: new Array((company.ownerContact.value), (company.responsibleContact ? company.responsibleContact.value : '')),
         selectedFuelTypes: s.stationsOnFuels
       }))
     };
@@ -218,9 +221,39 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
     }
   };
 
-  const getUnreadEventsCount = (firmName: string) => {
-    const events = AppStore.getEvents();
-    return events.filter(e => e.firmName === firmName && !e.read).length;
+  useEffect(() => {
+    async function fetchEventsForStations() {
+      if (!firms.length) return;
+
+      const allEvents: Record<string, any[]> = {};
+
+      for (const firm of firms) {
+        for (const station of firm.stations) {
+          try {
+            const result = await triggerGetEvents({ stationId: station.id }).unwrap();
+            allEvents[station.id] = result.data || [];
+          } catch (err) {
+            console.error(`Ошибка при загрузке событий для станции ${station.id}:`, err);
+            allEvents[station.id] = [];
+          }
+        }
+      }
+
+      setStationEvents(allEvents);
+    }
+
+    fetchEventsForStations();
+  }, [firms, showEvents.isEventsRefetch]);
+
+  const getUnreadEventsCount = (firm: Firm) => {
+    let unread = 0;
+
+    for (const station of firm.stations) {
+      const events = stationEvents[station.id] || [];
+      unread += events.filter(e => !e.viewed).length;
+    }
+
+    return unread;
   };
 
   async function handleSendMessage(companyId: string, message: string) {
@@ -309,7 +342,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                     new Set(firm.stations.map(s => s.responsibleName)).size > 1;
                   const hasMultipleCountries = new Set(firm.stations.map(s => s.country)).size > 1;
                   const hasMultipleCities = new Set(firm.stations.map(s => s.city)).size > 1;
-                  const unreadCount = getUnreadEventsCount(firm.firmName);
+                  const unreadCount = getUnreadEventsCount(firm);
 
                   return (
                     <TableRow key={firm.firmName}>
@@ -372,7 +405,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                               <MessageSquare className="w-4 h-4 mr-2" />
                               Сообщение
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEvents({ status: true, company: firm })}>
+                            <DropdownMenuItem onClick={() => setShowEvents((prev) => ({ ...prev, status: true, company: firm }))}>
                               <Bell className="w-4 h-4 mr-2" />
                               События {unreadCount > 0 && `(${unreadCount})`}
                             </DropdownMenuItem>
@@ -448,13 +481,14 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
           }}
           onEventsClick={() => {
             setShowEditClient(false)
-            setShowEvents({ status: true, company: selectedFirm })
+            setShowEvents((prev) => ({ ...prev, status: true, company: selectedFirm }))
           }}
         />
       )}
 
       {showEvents.status && (
         <EventsDialog
+          handleCheckAsRead={() => setShowEvents((prev) => ({ ...prev, isEventsRefetch: prev.isEventsRefetch + 1 }))}
           company={showEvents.company}
           onClose={() => setShowEvents((prev) => ({ ...prev, status: false }))}
         />

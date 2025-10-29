@@ -52,11 +52,15 @@ export class StationService {
     let company = await this.companyService.getByName(dto.companyName);
 
     if (!company) {
-      let createCompanyDto = new CreateCompanyDto();
-
+      const createCompanyDto = new CreateCompanyDto();
       createCompanyDto.name = dto.companyName;
       createCompanyDto.ownerName = dto.ownerCompanyName;
       createCompanyDto.description = dto.contactDescription;
+      createCompanyDto.ownerValue = dto.ownerValue;
+      createCompanyDto.responsibleName = dto.contactName;
+      createCompanyDto.responsibleValue = dto.responsibleValue;
+
+      console.log(createCompanyDto)
 
       company = await this.companyService.createCompany(createCompanyDto);
     }

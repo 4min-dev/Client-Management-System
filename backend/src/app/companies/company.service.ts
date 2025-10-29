@@ -87,6 +87,7 @@ export class CompanyService {
           create: {
             name: company.ownerName!,
             isOwner: true,
+            value: company.ownerValue || null,
           },
         },
         responsibleContact: company.responsibleName
@@ -94,6 +95,7 @@ export class CompanyService {
             create: {
               name: company.responsibleName,
               isOwner: false,
+              value: company.responsibleValue || null,
             },
           }
           : undefined,

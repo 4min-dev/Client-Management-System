@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { AppStore } from '../lib/store';
 import { ServerAPI } from '../lib/api';
 import type { Currency, Station } from '../lib/types';
+import { useAddStationMutation } from '../services/stationService';
 
 interface AddClientDialogProps {
   onClose: () => void;
@@ -14,6 +15,7 @@ interface AddClientDialogProps {
 }
 
 export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
+  const [addClient] = useAddStationMutation()
   const [formData, setFormData] = useState({
     firmName: '',
     ownerName: '',
@@ -31,80 +33,82 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
   });
 
   const handleSave = async () => {
-    // Validation
-    if (!formData.firmName || !formData.ownerName || !formData.country || !formData.city || !formData.address) {
-      alert('Заполните все обязательные поля');
-      return;
+    try {
+      if (!formData.firmName || !formData.ownerName || !formData.country || !formData.city || !formData.address) {
+        alert('Заполните все обязательные поля');
+        return;
+      }
+
+      if (formData.firmName === formData.ownerName) {
+        alert('Имя фирмы и владельца не могут совпадать');
+        return;
+      }
+
+      const rates = AppStore.getCurrencyRates();
+      const currencyRate = rates.find(r => r.currency === formData.currency);
+      if (!currencyRate) return;
+
+      const price = currencyRate.pricePerPistol * (1 - formData.discount / 100);
+      const monthlySum = formData.pistolCount * price;
+
+      const now = new Date();
+      const licenseDate = new Date(now);
+      licenseDate.setMonth(licenseDate.getMonth() + 1);
+
+      const station: Station = {
+        id: AppStore.generateID(),
+        firmName: formData.firmName,
+        ownerName: formData.ownerName,
+        responsibleName: formData.responsibleName || undefined,
+        responsibleDescription: formData.responsibleDescription || undefined,
+        responsibleContacts: formData.responsibleContacts.filter(c => c),
+        firmContacts: formData.firmContacts.filter(c => c),
+        country: formData.country,
+        city: formData.city,
+        address: formData.address,
+        processorCount: formData.processorCount,
+        pistolCount: formData.pistolCount,
+        currency: formData.currency,
+        discount: formData.discount,
+        price,
+        monthlySum,
+        prepayment: 0,
+        licenseDate,
+        syncDate: now,
+
+        shiftChangeEvents: 0,
+        calibrationChangeEvents: 1,
+        seasonChangeEvents: 1,
+        fuelTypeCount: 5,
+        fixShiftCount: 0,
+        receiptCoefficient: 0,
+        seasonCount: 1,
+        selectedFuelTypes: [],
+        stationsOnFuels: []
+      };
+
+      const response = await addClient({
+        address: station.address,
+        city: station.city,
+        companyName: station.firmName,
+        contactDescription: station.responsibleDescription || '',
+        contactName: station.responsibleName || '',
+        country: station.country,
+        currencyType: station.currency,
+        discount: station.discount,
+        ownerCompanyDescription: '',
+        ownerCompanyName: station.ownerName,
+        ownerValue: formData.firmContacts[0],
+        responsibleValue: formData.responsibleContacts[0],
+        pistolCount: station.pistolCount,
+        procCount: station.processorCount,
+      });
+
+      console.log(response)
+      onSave();
+    } catch (error) {
+      console.log(error)
     }
-
-    if (formData.firmName === formData.ownerName) {
-      alert('Имя фирмы и владельца не могут совпадать');
-      return;
-    }
-
-    const rates = AppStore.getCurrencyRates();
-    const currencyRate = rates.find(r => r.currency === formData.currency);
-    if (!currencyRate) return;
-
-    const price = currencyRate.pricePerPistol * (1 - formData.discount / 100);
-    const monthlySum = formData.pistolCount * price;
-
-    const now = new Date();
-    const licenseDate = new Date(now);
-    licenseDate.setMonth(licenseDate.getMonth() + 1);
-
-    const station: Station = {
-      id: AppStore.generateID(),
-      firmName: formData.firmName,
-      ownerName: formData.ownerName,
-      responsibleName: formData.responsibleName || undefined,
-      responsibleDescription: formData.responsibleDescription || undefined,
-      responsibleContacts: formData.responsibleContacts.filter(c => c),
-      firmContacts: formData.firmContacts.filter(c => c),
-      country: formData.country,
-      city: formData.city,
-      address: formData.address,
-      processorCount: formData.processorCount,
-      pistolCount: formData.pistolCount,
-      currency: formData.currency,
-      discount: formData.discount,
-      price,
-      monthlySum,
-      prepayment: 0,
-      licenseDate,
-      syncDate: now,
-      
-      // Default Form 8 values
-      shiftChangeEvents: 0,
-      calibrationChangeEvents: 1,
-      seasonChangeEvents: 1,
-      fuelTypeCount: 5,
-      fixShiftCount: 0,
-      receiptCoefficient: 0,
-      seasonCount: 1,
-      selectedFuelTypes: [1, 2, 3, 4, 5]
-    };
-
-    AppStore.saveStation(station);
-
-    // Send Form 7 & 8 data to server
-    await ServerAPI.sendStationData(station.id, {
-      shiftChangeEvents: station.shiftChangeEvents,
-      calibrationChangeEvents: station.calibrationChangeEvents,
-      seasonChangeEvents: station.seasonChangeEvents,
-      fixshiftChangeCount: station.fixShiftCount,
-      receiptCoefficient: station.receiptCoefficient,
-      seasonCount: station.seasonCount,
-      processorCount: station.processorCount,
-      gunCount: station.pistolCount,
-      stationTotalSum: station.monthlySum,
-      currency: station.currency
-    });
-
-    // Send license date
-    await ServerAPI.sendLicenseDate(station.id, station.licenseDate);
-
-    onSave();
   };
 
   return (
@@ -146,9 +150,9 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
               <Label>Метод Связи Фирмы *</Label>
               <Input
                 value={formData.firmContacts[0]}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  firmContacts: [e.target.value] 
+                onChange={(e) => setFormData({
+                  ...formData,
+                  firmContacts: [e.target.value]
                 })}
                 placeholder="+374..."
               />
@@ -179,9 +183,9 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
             <Label>Метод Связи Ответственного</Label>
             <Input
               value={formData.responsibleContacts[0]}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                responsibleContacts: [e.target.value] 
+              onChange={(e) => setFormData({
+                ...formData,
+                responsibleContacts: [e.target.value]
               })}
               placeholder="+374..."
               disabled={!formData.responsibleName}
@@ -239,7 +243,7 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Валюта *</Label>
-              <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v as Currency })}>
+              <Select value={formData.currency} onValueChange={(v: Currency) => setFormData({ ...formData, currency: v as Currency })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

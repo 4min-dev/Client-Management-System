@@ -1,6 +1,5 @@
-import { Fuel } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class CreateCompanyDto {
   @ApiProperty()
@@ -9,11 +8,25 @@ export class CreateCompanyDto {
 
   @ApiProperty()
   @IsString()
+  @IsOptional()
   description?: string;
 
   @ApiProperty()
   @IsString()
   ownerName?: string;
 
-  responsibleName?: string
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  ownerValue?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  responsibleName?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsOptional()
+  responsibleValue?: string;
 }
