@@ -63,6 +63,6 @@ export class CryptoService {
   }
 
   async hashPassword(password: string): Promise<string> {
-    return hash(password, 10); // 10 — количество раундов для bcrypt
+    return hash(password, 10);
   }
 }

@@ -135,6 +135,7 @@ model StationsOnFuels {
 
   assignedAt DateTime @default(now())
 
+  @@unique([stationId, fuelId])
   @@map("stations_on_fuels")
 }
 

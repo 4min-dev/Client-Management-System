@@ -12,6 +12,12 @@ export interface Fuel {
   stationId: string
 }
 
+export interface FuelOnList {
+  id: string,
+  name: string,
+  fuelOnStation: Fuel[]
+}
+
 export interface Station {
   id: string;
   firmName: string;

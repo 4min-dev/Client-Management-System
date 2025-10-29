@@ -70,10 +70,21 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const [sendMessage] = useSendMessageMutation();
   const [deleteCompany] = useDeleteCompanyMutation();
   const [deleteCompanyPermanent] = useDeleteCompanyPermanentMutation();
-  const { data: companiesData } = useGetCompaniesQuery();
+  const { data: companiesData, refetch: refetchCompanies } = useGetCompaniesQuery();
 
   const handleDeleteCompany = async (companyId: string, password: string, isPermanent: boolean) => {
     try {
+      const selectedCompany = firms.find(firm => firm.id === companyId)
+
+      if (!selectedCompany) return
+
+      if (selectedCompany.stations.length > 0) {
+        setSelectedFirm(selectedCompany)
+        setShowEditClient(true)
+        setShowDeletePassword({ companyId: '', isPermanent: false, status: false })
+        return
+      }
+
       if (isPermanent) {
         await deleteCompanyPermanent({ id: companyId, password }).unwrap();
       } else {
@@ -174,7 +185,9 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const totalProcessors = firms.reduce((sum, firm) => sum + firm.totalProcessors, 0);
   const totalPistols = firms.reduce((sum, firm) => sum + firm.totalPistols, 0);
 
-  const getStatusIcon = (status: 'active' | 'mixed' | 'inactive') => {
+  const getStatusIcon = (status: 'active' | 'mixed' | 'inactive', isDeleted: boolean) => {
+    if (isDeleted) return <XCircle className="w-5 h-5 text-red-600" />;
+
     switch (status) {
       case 'active':
         return <CheckCircle className="w-5 h-5 text-green-600" />;
@@ -300,10 +313,10 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
 
                   return (
                     <TableRow key={firm.firmName}>
-                      <TableCell>{getStatusIcon(firm.status)}</TableCell>
+                      <TableCell>{getStatusIcon(firm.status, firm.isDeleted)}</TableCell>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{firm.firmName}</TableCell>
-                      <TableCell>{firm.ownerName}</TableCell>
+                      <TableCell id='firmOwnerName'>{firm.ownerName}</TableCell>
                       <TableCell>
                         {hasMultipleResponsibles ? (
                           <button
@@ -420,8 +433,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
             setShowEditClient(false);
             setSelectedFirm(null);
           }}
-          onSave={() => {
-            loadFirms();
+          onSave={async () => {
+            await refetchCompanies()
             setShowEditClient(false);
             setSelectedFirm(null);
           }}

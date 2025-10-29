@@ -3,21 +3,24 @@ import prisma from '../prisma';
 import * as dayjs from 'dayjs';
 
 export async function seedStationsOnFuels() {
-  await Promise.all(
-    stationOnFuels.map(async (item, _) => {
-      await prisma.stationsOnFuels.upsert({
-        where: {
-          id: item.id,
-        },
-        update: {},
-        create: {
+  for (const item of stationOnFuels) {
+    await prisma.stationsOnFuels.upsert({
+      where: {
+        stationId_fuelId: {
           stationId: item.stationId,
           fuelId: item.fuelId,
-          assignedAt: dayjs().toDate(),
         },
-      });
-    }),
-  );
+      },
+      update: {
+        assignedAt: new Date(),
+      },
+      create: {
+        stationId: item.stationId,
+        fuelId: item.fuelId,
+        assignedAt: new Date(),
+      },
+    });
+  }
 
   console.debug('[DEBUG] Seed fuels on station - Done!');
 }

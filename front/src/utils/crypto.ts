@@ -1,5 +1,4 @@
 import CryptoJS from 'crypto-js';
-import { decode } from '@msgpack/msgpack';
 
 export const updateCryptoKey = async (stationId: string, macAddress: string) => {
     const CRYPTO_KEY = '3901c991783353e98e1e39d54ad5a1fc';
@@ -32,34 +31,31 @@ export const decryptData = (encrypted: string, key: string): any => {
         hasher: CryptoJS.algo.SHA256,
     });
 
-    const decrypted = CryptoJS.AES.decrypt(
-        { ciphertext } as any,
-        derivedKey,
-        {
-            iv,
-            mode: CryptoJS.mode.CTR,
-            padding: CryptoJS.pad.NoPadding,
-        }
-    );
-
-    const decryptedString = decrypted.toString(CryptoJS.enc.Latin1);
-
-    if (!decryptedString) {
-        throw new Error('Decryption failed');
-    }
+    const decrypted = CryptoJS.AES.decrypt({ ciphertext } as any, derivedKey, {
+        iv,
+        mode: CryptoJS.mode.CTR,
+        padding: CryptoJS.pad.NoPadding,
+    });
 
     const byteLength = decrypted.sigBytes;
-    const actualString = decryptedString.slice(0, byteLength);
+    const bytes = new Uint8Array(byteLength);
+    let offset = 0;
+    const words = decrypted.words;
 
-    try {
-        return JSON.parse(actualString);
-    } catch (e: any) {
-        console.error('Decrypted (raw):', actualString);
-        throw new Error('Failed to parse JSON: ' + e.message);
+    for (let i = 0; i < words.length && offset < byteLength; i++) {
+        const word = words[i];
+        for (let j = 3; j >= 0 && offset < byteLength; j--) {
+            bytes[offset++] = (word >> (j * 8)) & 0xff;
+        }
     }
+
+    const text = new TextDecoder().decode(bytes);
+    return JSON.parse(text); // ← JSON
 };
 
-export const encryptData = (message: string, key: string): string => {
+export const encryptData = (message: any, key: string): string => {
+    const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+
     const iv = CryptoJS.lib.WordArray.random(16);
     const derivedKey = CryptoJS.PBKDF2(key, 'salt', {
         keySize: 8,
@@ -67,7 +63,7 @@ export const encryptData = (message: string, key: string): string => {
         hasher: CryptoJS.algo.SHA256,
     });
 
-    const encrypted = CryptoJS.AES.encrypt(message, derivedKey, {
+    const encrypted = CryptoJS.AES.encrypt(messageStr, derivedKey, {
         iv,
         mode: CryptoJS.mode.CTR,
         padding: CryptoJS.pad.NoPadding,

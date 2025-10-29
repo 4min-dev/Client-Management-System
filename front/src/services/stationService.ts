@@ -1,21 +1,22 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { decryptData } from '../utils/crypto';
+import { decryptData, encryptData } from '../utils/crypto';
+import { Fuel } from '../lib/types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 interface StationOptionsResponse {
-    calibrationChangeEvents: 0 | 1,
-    fixShiftCount: 0 | 1,
-    receiptCoefficient: 0 | 1,
-    seasonChangeEvents: 0 | 1,
-    seasonCount: 1 | 2 | 3 | 4,
-    shiftChangeEvents: 0 | 1,
-    selectedFuelTypes: number[],
-    currencytype: string,
-    currencyValue: number,
-    pistolCount: number,
-    procNumber: number,
-    metadata: any
+    calibrationChangeEvents: 0 | 1;
+    fixShiftCount: 0 | 1;
+    receiptCoefficient: 0 | 1;
+    seasonChangeEvents: 0 | 1;
+    seasonCount: 1 | 2 | 3 | 4;
+    shiftChangeEvents: 0 | 1;
+    selectedFuelTypes: number[];
+    currencytype: string;
+    currencyValue: number;
+    pistolCount: number;
+    procNumber: number;
+    metadata: any;
 }
 
 interface GetStationOptionsArgs {
@@ -23,18 +24,41 @@ interface GetStationOptionsArgs {
     cryptoKey: string;
 }
 
+interface UpdateStationSyncArgs {
+    stationId: string;
+    cryptoKey: string;
+    payload: {
+        fuels?: Fuel[];
+        options?: {
+            shiftChangeEvents?: number;
+            calibrationChangeEvents?: number;
+            seasonChangeEvents?: number;
+            receiptCoefficient?: number;
+            fixShiftCount?: number;
+            seasonCount?: number;
+        };
+    };
+}
+
 export const stationService = createApi({
     reducerPath: 'stationService',
     baseQuery: fetchBaseQuery({
         baseUrl: `${BASE_URL}/station/`,
+        prepareHeaders: (headers) => {
+            const token = sessionStorage.getItem('accessToken');
+            if (token) {
+                headers.set('Authorization', `Bearer ${token}`);
+            }
+            return headers;
+        },
     }),
+    tagTypes: ['Stations'],
     endpoints: (builder) => ({
         getStationOptions: builder.query<StationOptionsResponse, GetStationOptionsArgs>({
             query: ({ stationId }) => ({
                 url: `synchronize/crypt/${stationId}/options`,
                 method: 'GET',
             }),
-
             transformResponse: async (rawResponse: { data: string }, _meta, arg) => {
                 try {
                     return await decryptData(rawResponse.data, arg.cryptoKey);
@@ -43,8 +67,34 @@ export const stationService = createApi({
                     throw new Error('Failed to decrypt: ' + err.message);
                 }
             },
+            providesTags: ['Stations']
+        }),
+
+        updateStationSync: builder.mutation<{ success: boolean }, UpdateStationSyncArgs>({
+            query: ({ stationId, cryptoKey, payload }) => {
+                const encrypted = encryptData(JSON.stringify(payload), cryptoKey);
+                return {
+                    url: `synchronize/crypt/${stationId}/update`,
+                    method: 'PATCH',
+                    body: { data: encrypted },
+                };
+            },
+            invalidatesTags: ['Stations']
+        }),
+
+        deleteStation: builder.mutation<{ success: boolean }, { stationId: string; password: string }>({
+            query: ({ stationId, password }) => ({
+                url: `delete/${stationId}`,
+                method: 'DELETE',
+                body: { password },
+            }),
+            invalidatesTags: ['Stations'],
         }),
     }),
 });
 
-export const { useGetStationOptionsQuery } = stationService;
+export const {
+    useGetStationOptionsQuery,
+    useUpdateStationSyncMutation,
+    useDeleteStationMutation
+} = stationService;

@@ -4,11 +4,10 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { AppStore } from '../lib/store';
-import { ServerAPI } from '../lib/api';
-import type { Fuel, Station } from '../lib/types';
-import { useGetStationOptionsQuery } from '../services/stationService';
+import type { Fuel, FuelOnList, Station } from '../lib/types';
+import { useGetStationOptionsQuery, useUpdateStationSyncMutation } from '../services/stationService';
 import { updateCryptoKey } from '../utils/crypto';
+import { useGetFuelListQuery } from '../services/fuelService';
 
 interface StationDetailsDialogProps {
   station: Station;
@@ -16,18 +15,21 @@ interface StationDetailsDialogProps {
   onSave: () => void;
 }
 
-export function StationDetailsDialog({ station, onClose, onSave }: StationDetailsDialogProps) {
-  const CRYPTO_KEY = 'fdc6e5ce730dd3945404621e179e126f';
-  const STATION_ID = '154949be-4365-4d38-86ac-24caf4368d8c';
-  const MAC_ADDRESS = '00:1A:2B:3C:4D:5E';
+const CRYPTO_KEY = import.meta.env.VITE_CRYPTO_KEY
+const STATION_ID = import.meta.env.VITE_STATION_ID
+const MAC_ADDRESS = import.meta.env.VITE_MAC_ADDRESS
 
-  const { data, error, isLoading, refetch } = useGetStationOptionsQuery(
+export function StationDetailsDialog({ station, onClose, onSave }: StationDetailsDialogProps) {
+  const [updateStationSync] = useUpdateStationSyncMutation()
+  const { data: fuelTypes } = useGetFuelListQuery()
+
+  const { data: stationOptionsData, error, isLoading, refetch } = useGetStationOptionsQuery(
     { stationId: STATION_ID, cryptoKey: CRYPTO_KEY },
     { skip: !CRYPTO_KEY }
   );
 
   useEffect(() => {
-    if (data && data?.metadata?.needUpdate?.key) {
+    if (stationOptionsData && stationOptionsData?.metadata?.needUpdate?.key) {
       console.log('Ключ устарел — обновляем...');
       updateCryptoKey(STATION_ID, MAC_ADDRESS)
         .then(() => {
@@ -36,7 +38,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
         })
         .catch(console.error);
     }
-  }, [data]);
+  }, [stationOptionsData]);
 
   const [details, setDetails] = useState<{
     shiftChangeEvents: 0 | 1,
@@ -58,80 +60,69 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
 
   useEffect(() => {
     console.log(station)
-    if (!data || !station.selectedFuelTypes) return
+    if (!stationOptionsData || !station.selectedFuelTypes) return
 
     setDetails({
-      shiftChangeEvents: data?.shiftChangeEvents,
-      calibrationChangeEvents: data?.calibrationChangeEvents,
-      seasonChangeEvents: data?.seasonChangeEvents,
-      fixShiftCount: data?.fixShiftCount,
-      receiptCoefficient: data?.receiptCoefficient,
-      seasonCount: data?.seasonCount,
+      shiftChangeEvents: stationOptionsData?.shiftChangeEvents,
+      calibrationChangeEvents: stationOptionsData?.calibrationChangeEvents,
+      seasonChangeEvents: stationOptionsData?.seasonChangeEvents,
+      fixShiftCount: stationOptionsData?.fixShiftCount,
+      receiptCoefficient: stationOptionsData?.receiptCoefficient,
+      seasonCount: stationOptionsData?.seasonCount,
       selectedFuelTypes: station.selectedFuelTypes
     })
-  }, [data])
+  }, [stationOptionsData])
 
   useEffect(() => {
     console.log(details)
   }, [details])
 
-  const fuelTypes = AppStore.getFuelTypes();
   const [showFuelSelection, setShowFuelSelection] = useState(false);
 
   const handleSave = async () => {
-    station.shiftChangeEvents = details.shiftChangeEvents;
-    station.calibrationChangeEvents = details.calibrationChangeEvents;
-    station.seasonChangeEvents = details.seasonChangeEvents;
-    station.fixShiftCount = details.fixShiftCount;
-    station.receiptCoefficient = details.receiptCoefficient;
-    station.seasonCount = details.seasonCount;
-    station.selectedFuelTypes = details.selectedFuelTypes;
-    station.fuelTypeCount = details.selectedFuelTypes.length;
+    try {
+      const res = await updateStationSync({
+        stationId: STATION_ID,
+        cryptoKey: CRYPTO_KEY,
+        payload: {
+          fuels: details.selectedFuelTypes,
+          options: {
+            calibrationChangeEvents: details.calibrationChangeEvents,
+            fixShiftCount: details.fixShiftCount,
+            receiptCoefficient: details.receiptCoefficient,
+            seasonChangeEvents: details.seasonChangeEvents,
+            seasonCount: details.seasonCount,
+            shiftChangeEvents: details.shiftChangeEvents
+          },
+        },
+      }).unwrap();
 
-    // Adjust discount based on coefficient and seasons
-    let discountAdjustment = 0;
-    if (details.receiptCoefficient === 1) {
-      discountAdjustment -= 15; // -15% if coefficient is on
+      console.log(res)
+      alert('Настройки обновлены!');
+    } catch (err: any) {
+      alert('Ошибка: ' + err.message);
     }
-    discountAdjustment -= (details.seasonCount - 1) * 10; // -10% per extra season
-
-    // Recalculate price and sum
-    const rates = AppStore.getCurrencyRates();
-    const rate = rates.find(r => r.currency === station.currency);
-    if (rate) {
-      const adjustedDiscount = Math.max(0, station.discount + discountAdjustment);
-      station.price = rate.pricePerPistol * (1 - adjustedDiscount / 100);
-      station.monthlySum = station.pistolCount * station.price;
-    }
-
-    AppStore.saveStation(station);
-
-    // Send updated data to server
-    await ServerAPI.sendStationData(station.id, {
-      shiftChangeEvents: details.shiftChangeEvents,
-      calibrationChangeEvents: details.calibrationChangeEvents,
-      seasonChangeEvents: details.seasonChangeEvents,
-      fixshiftChangeCount: details.fixShiftCount,
-      receiptCoefficient: details.receiptCoefficient,
-      seasonCount: details.seasonCount,
-      processorCount: station.processorCount,
-      gunCount: station.pistolCount,
-      stationTotalSum: station.monthlySum,
-      currency: station.currency
-    });
-
-    onSave();
   };
 
-  const toggleFuelType = (id: number) => {
-    // const current = [...details.selectedFuelTypes];
-    // const index = current.indexOf(id);
-    // if (index >= 0) {
-    //   current.splice(index, 1);
-    // } else {
-    //   current.push(id);
-    // }
-    // setDetails({ ...details, selectedFuelTypes: current });
+  const toggleFuelType = (fuel: FuelOnList) => {
+    setDetails((prev: any) => {
+      const isSelected = prev.selectedFuelTypes.some((f: Fuel) => f.fuelId === fuel.id);
+
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedFuelTypes: prev.selectedFuelTypes.filter((f: Fuel) => f.fuelId !== fuel.id)
+        };
+      } else {
+        return {
+          ...prev,
+          selectedFuelTypes: [
+            ...prev.selectedFuelTypes,
+            { fuelId: fuel.id, name: fuel.name }
+          ]
+        };
+      }
+    });
   };
 
   return (
@@ -220,14 +211,14 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
               {showFuelSelection ? 'Скрыть' : 'Выбрать'} типы топлива
             </Button>
 
-            {showFuelSelection && (
+            {(showFuelSelection && fuelTypes) && (
               <div className="border rounded p-4 space-y-2">
-                {fuelTypes.map(fuel => (
+                {fuelTypes.data.map(fuel => (
                   <div key={fuel.id} className="flex items-center gap-2">
                     <Checkbox
                       id={`fuel-${fuel.id}`}
                       checked={details.selectedFuelTypes.some(fuelType => fuelType.fuelId === fuel.id)}
-                    // onCheckedChange={() => toggleFuelType(fuel.id)}
+                      onCheckedChange={() => toggleFuelType(fuel)}
                     />
                     <Label htmlFor={`fuel-${fuel.id}`} className="cursor-pointer">
                       {fuel.name}

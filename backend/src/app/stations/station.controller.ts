@@ -1,13 +1,15 @@
 import {
   Body,
   Controller,
-  Request,
   Patch,
   Post,
   Get,
   Param,
   ParseIntPipe,
   NotAcceptableException, Inject, Delete, Put,
+  Req,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StationService } from './station.service';
@@ -20,6 +22,10 @@ import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { getFuelsChangedEventKey, getOptionsChangedEventKey } from './utils/cacheKeys';
 import { CreateStationMessageDto } from './dto/createStationMessage.dto';
 import { CreateStationDto } from './dto/createStationDto.dto';
+import { UpdateStationSyncDto } from './dto/updateStationSync.dto';
+import { DeleteStationDto } from './dto/deleteStation.dto';
+import { Request } from 'express';
+import { JwtAuthGuard } from 'src/infrastructure/auth/jwt.guard';
 
 @Controller('station')
 export class StationController {
@@ -27,7 +33,7 @@ export class StationController {
     private cryptoService: CryptoService,
     private configService: ConfigService,
     private stationService: StationService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
   }
 
@@ -48,8 +54,25 @@ export class StationController {
   }
 
   @Delete('delete/:stationId')
-  async deleteStation(@Param('stationId') stationId: string) {
-    return this.stationService.deleteFuel(stationId);
+  @UseGuards(JwtAuthGuard)
+  async deleteStation(
+    @Param('stationId') stationId: string,
+    @Req() request: Request,
+    @Body() dto: DeleteStationDto,
+  ) {
+    const rawUser = request.user as any;
+    console.log('RAW USER:', rawUser);
+
+    const user = {
+      userId: rawUser.userId || rawUser.id,
+      login: rawUser.login,
+    };
+
+    if (!user.userId) {
+      throw new UnauthorizedException('Invalid user in token');
+    }
+
+    return this.stationService.deleteStation(stationId, user, dto.password);
   }
 
   @Get('messages/:stationId/list')
@@ -140,5 +163,25 @@ export class StationController {
       ),
       stationKey,
     );
+  }
+
+  @Patch('synchronize/crypt/:stationId/update')
+  async updateStationSync(
+    @Param('stationId') stationId: string,
+    @Body() body: { data: string },
+  ) {
+    const station = await this.stationService.findOne(stationId);
+    const stationKey = station.cryptoKey?.key;
+
+    if (!stationKey) {
+      throw new NotAcceptableException('Station doesnt have cryptokey');
+    }
+
+    const decrypted = await this.cryptoService.decryptData(body.data, stationKey);
+    const dto: UpdateStationSyncDto = JSON.parse(decrypted);
+
+    await this.stationService.updateStationSync(stationId, dto);
+
+    return { success: true };
   }
 }

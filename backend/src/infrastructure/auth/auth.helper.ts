@@ -25,8 +25,14 @@ export class AuthHelper {
     return this.jwtService.decode(token, null);
   }
 
-  public async validateUser(decoded: any): Promise<User> {
-    return await this.userService.find({ id: decoded.userId });
+  public async validateUser(decoded: any): Promise<any> {
+    const user = await this.userService.find({ id: decoded.userId });
+    if (!user) throw new UnauthorizedException();
+
+    return {
+      ...user,
+      userId: user.id,
+    };
   }
 
   //Not used

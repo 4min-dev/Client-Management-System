@@ -27,6 +27,7 @@ import {
   Key
 } from 'lucide-react';
 import { StationDetailsDialog } from './StationDetailsDialog';
+import { useDeleteStationMutation } from '../services/stationService';
 
 interface EditClientDialogProps {
   firm: Firm;
@@ -37,6 +38,7 @@ interface EditClientDialogProps {
 }
 
 export function EditClientDialog({ firm, onClose, onSave, onMessageClick, onEventsClick }: EditClientDialogProps) {
+  const [deleteStation] = useDeleteStationMutation()
   const [editMode, setEditMode] = useState(false);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -79,22 +81,21 @@ export function EditClientDialog({ firm, onClose, onSave, onMessageClick, onEven
   const handleDelete = async (station: Station) => {
     if (!confirm('Вы уверены, что хотите удалить эту станцию?')) return;
 
-    // Password prompt (simplified for demo)
-    const password = prompt('Введите пароль для подтверждения:');
-    if (password !== 'admin') {
-      alert('Неправильный пароль');
+    const password = prompt('Введите пароль:');
+    if (!password || password.trim() === '') {
+      alert('Пароль обязателен!');
       return;
     }
 
-    // Keep only current month, rest goes to prepayment
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = daysInMonth - now.getDate();
-    const dailyRate = station.monthlySum / daysInMonth;
-    station.prepayment += dailyRate * daysRemaining;
+    try {
+      await deleteStation({ stationId: station.id, password }).unwrap();
 
-    AppStore.deleteStation(station.id);
-    onSave();
+      onSave();
+      alert('Станция успешно удалена');
+    } catch (error: any) {
+      console.error('Ошибка удаления:', error);
+      alert(error?.data?.message || 'Ошибка при удалении станции');
+    }
   };
 
   const handleBlockToggle = async (station: Station, blocked: boolean) => {
