@@ -73,10 +73,6 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
     })
   }, [stationOptionsData])
 
-  useEffect(() => {
-    console.log(details)
-  }, [details])
-
   const [showFuelSelection, setShowFuelSelection] = useState(false);
 
   const handleSave = async () => {

@@ -2,7 +2,7 @@
 
 export type Currency = 'AMD' | 'RUB' | 'USD' | 'EUR' | 'GEL';
 
-export type StationStatus = 'active' | 'mixed' | 'inactive';
+export type StationStatus = 'active' | 'inactive';
 
 export interface Fuel {
   assignedAt: Date,
@@ -54,7 +54,8 @@ export interface Station {
   seasonCount: 1 | 2 | 3 | 4;
 
   selectedFuelTypes: Fuel[];
-  stationsOnFuels: Fuel[]
+  stationsOnFuels: Fuel[];
+  status?: StationStatus
 }
 
 export interface Firm {

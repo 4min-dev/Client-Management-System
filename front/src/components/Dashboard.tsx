@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AppStore } from '../lib/store';
 import { EventGenerator } from '../lib/eventGenerator';
-import type { Firm } from '../lib/types';
+import type { Firm, Station } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
@@ -113,6 +113,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         : 0;
 
     const oldestSyncDate = stations.reduce((min: Date, s: any) => {
+      if (!s.synchronize) return null
+
       const date = new Date(s.synchronize);
       return date < min ? date : min;
     }, new Date());
@@ -188,17 +190,21 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const totalProcessors = firms.reduce((sum, firm) => sum + firm.totalProcessors, 0);
   const totalPistols = firms.reduce((sum, firm) => sum + firm.totalPistols, 0);
 
-  const getStatusIcon = (status: 'active' | 'mixed' | 'inactive', isDeleted: boolean) => {
+  const getStatusIcon = (firmStations: Station[], isDeleted: boolean) => {
     if (isDeleted) return <XCircle className="w-5 h-5 text-red-600" />;
 
-    switch (status) {
-      case 'active':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'mixed':
-        return <AlertCircle className="w-5 h-5 text-yellow-600" />;
-      case 'inactive':
-        return <XCircle className="w-5 h-5 text-red-600" />;
+    const hasActive = firmStations.some((s) => s.status === 'active');
+    const hasInactive = firmStations.some((s) => s.status === 'inactive');
+
+    if (hasActive && hasInactive) {
+      return <AlertCircle className="w-5 h-5 text-yellow-600" />;
     }
+
+    if (hasActive) {
+      return <CheckCircle className="w-5 h-5 text-green-600" />;
+    }
+
+    return <XCircle className="w-5 h-5 text-red-600" />;
   };
 
   const formatNumber = (num: number) => {
@@ -346,7 +352,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
 
                   return (
                     <TableRow key={firm.firmName}>
-                      <TableCell>{getStatusIcon(firm.status, firm.isDeleted)}</TableCell>
+                      <TableCell>{getStatusIcon(firm.stations, firm.isDeleted)}</TableCell>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{firm.firmName}</TableCell>
                       <TableCell id='firmOwnerName'>{firm.ownerName}</TableCell>
@@ -376,7 +382,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                         <FirmActions firm={firm} onUpdate={loadFirms} />
                       </TableCell>
                       <TableCell className="text-right">{formatNumber(firm.prepayment)}</TableCell>
-                      <TableCell>{formatDate(firm.oldestSyncDate)}</TableCell>
+                      <TableCell className='text-center'>{firm.oldestSyncDate ? formatDate(firm.oldestSyncDate) : '-'}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

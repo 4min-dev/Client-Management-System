@@ -84,7 +84,7 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
         receiptCoefficient: 0,
         seasonCount: 1,
         selectedFuelTypes: [],
-        stationsOnFuels: []
+        stationsOnFuels: [],
       };
 
       const response = await addClient({

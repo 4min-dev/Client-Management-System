@@ -14,67 +14,99 @@ import {
 import { AppStore } from '../lib/store';
 import type { FuelType } from '../lib/types';
 import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useAddFuelMutation, useDeleteFuelMutation, useEditFuelMutation, useGetFuelListQuery } from '../services/fuelService';
 
 interface FuelTypesManagerProps {
   onClose: () => void;
 }
 
 export function FuelTypesManager({ onClose }: FuelTypesManagerProps) {
+  const { data: fuelTypesData } = useGetFuelListQuery()
+  const [editFuel] = useEditFuelMutation()
+  const [deleteFuel] = useDeleteFuelMutation()
+  const [addFuel] = useAddFuelMutation()
   const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     loadFuelTypes();
-  }, []);
+  }, [fuelTypesData]);
 
   const loadFuelTypes = () => {
-    setFuelTypes(AppStore.getFuelTypes());
+    if (!fuelTypesData) return
+
+    setFuelTypes(fuelTypesData.data);
   };
 
-  const handleAdd = () => {
-    if (!newName.trim()) return;
-
-    const newId = Math.max(...fuelTypes.map(f => f.id), 0) + 1;
-    const newFuelType: FuelType = {
-      id: newId,
-      name: newName.trim()
-    };
-
-    AppStore.saveFuelType(newFuelType);
-    setNewName('');
-    setIsAdding(false);
-    loadFuelTypes();
-  };
-
-  const handleEdit = (id: number, name: string) => {
-    const stations = AppStore.getStations();
-    const usageCount = stations.filter(s => s.selectedFuelTypes.includes(id)).length;
-
-    if (usageCount > 0) {
-      if (!confirm(`Данный тип топлива использывается на ${usageCount} станциях. Изменить название везде?`)) {
-        setEditingId(null);
-        return;
-      }
+  const handleAdd = async () => {
+    try {
+      const response = await addFuel(newName.trim())
+      console.log(response)
+      setNewName('')
+      setIsAdding(false)
+      loadFuelTypes()
+    } catch (error) {
+      console.log(error)
     }
 
-    const fuelType = fuelTypes.find(f => f.id === id);
-    if (fuelType) {
-      fuelType.name = name;
-      AppStore.saveFuelType(fuelType);
+    // if (!newName.trim()) return;
+
+    // const newId = Math.max(...fuelTypes.map(f => f.id), 0) + 1;
+    // const newFuelType: FuelType = {
+    //   id: newId,
+    //   name: newName.trim()
+    // };
+
+    // AppStore.saveFuelType(newFuelType);
+    // setNewName('');
+    // setIsAdding(false);
+    // loadFuelTypes();
+  };
+
+  const handleEdit = async (id: string, name: string) => {
+    try {
+      const response = await editFuel({ id, name })
+      console.log(response)
       setEditingId(null);
-      loadFuelTypes();
+    } catch (error) {
+      console.log(error)
     }
+
+    // const stations = AppStore.getStations();
+    // const usageCount = stations.filter(s => s.selectedFuelTypes.includes(id)).length;
+
+    // if (usageCount > 0) {
+    //   if (!confirm(`Данный тип топлива использывается на ${usageCount} станциях. Изменить название везде?`)) {
+    //     setEditingId(null);
+    //     return;
+    //   }
+    // }
+
+    // const fuelType = fuelTypes.find(f => f.id === id);
+    // if (fuelType) {
+    //   fuelType.name = name;
+    //   AppStore.saveFuelType(fuelType);
+    //   setEditingId(null);
+    //   loadFuelTypes();
+    // }
   };
 
-  const handleDelete = (id: number) => {
-    const success = AppStore.deleteFuelType(id);
-    if (!success) {
-      alert('Невозможно удалить. Данный тип топлива используется на станциях.');
-      return;
+  const handleDelete = async (id: string) => {
+    try {
+      const response = await deleteFuel(id)
+      console.log(response)
+    } catch (error) {
+      console.log(error)
     }
-    loadFuelTypes();
+
+    // const success = AppStore.deleteFuelType(id);
+    // if (!success) {
+    //   alert('Невозможно удалить. Данный тип топлива используется на станциях.');
+    //   return;
+    // }
+    // loadFuelTypes();
   };
 
   return (
