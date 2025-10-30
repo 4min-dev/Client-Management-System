@@ -14,58 +14,104 @@ import {
 import { AppStore } from '../lib/store';
 import { ServerAPI } from '../lib/api';
 import type { CurrencyRate, Currency } from '../lib/types';
+import { useChangeExchangeRatesMutation, useChangePistolRatesMutation, useGetCurrencyListQuery, useGetExchangeRatesQuery, useGetPistolRatesQuery } from '../services/currencyService';
 
 interface PricingManagerProps {
   onClose: () => void;
 }
 
 export function PricingManager({ onClose }: PricingManagerProps) {
+  const { data: currencyData } = useGetCurrencyListQuery()
+  const { data: exchangeRatesData } = useGetExchangeRatesQuery()
+  const { data: pistolRatesData } = useGetPistolRatesQuery()
+  const [changePistolRates] = useChangePistolRatesMutation()
+  const [changeExchangeRates] = useChangeExchangeRatesMutation()
   const [rates, setRates] = useState<CurrencyRate[]>([]);
   const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
     loadRates();
-  }, []);
+  }, [currencyData,
+    exchangeRatesData,
+    pistolRatesData]);
 
   const loadRates = () => {
-    setRates(AppStore.getCurrencyRates());
-  };
+    if (!currencyData?.data || !exchangeRatesData?.data || !pistolRatesData?.data) return;
 
-  const handleSave = (rate: CurrencyRate) => {
-    AppStore.saveCurrencyRate(rate);
-    
-    // Update all stations with this currency
-    const stations = AppStore.getStations();
-    const affectedStations = stations.filter(s => s.currency === rate.currency);
-    
-    if (affectedStations.length > 0) {
-      if (!confirm(`Изменить цены для ${affectedStations.length} станций с валютой ${rate.currency}?`)) {
-        return;
+    const currencyList = currencyData.data;
+    const exchangeRates = exchangeRatesData.data;
+    const pistolRates = pistolRatesData.data;
+
+    // Собираем итоговый массив
+    const mergedRates: CurrencyRate[] = currencyList.map((currency: any) => {
+      // Находим цену за 1 пистолет
+      const pistolRate = pistolRates.find((p: any) => p.currencyType === currency)?.rate ?? 0;
+
+      // Находим курс к AMD
+      let rateToAMD = 1;
+      if (currency === 'AMD') {
+        rateToAMD = 1;
+      } else {
+        const found = exchangeRates.find((r: any) => r.toCurrencyType === currency);
+        // курс записан от AMD к X, значит надо взять обратный 1 / rate
+        rateToAMD = found ? 1 / found.rate : 1;
       }
 
-      affectedStations.forEach(station => {
-        station.price = rate.pricePerPistol * (1 - station.discount / 100);
-        station.monthlySum = station.pistolCount * station.price;
-        AppStore.saveStation(station);
-        
-        // Send updated data to server
-        ServerAPI.sendStationData(station.id, {
-          shiftChangeEvents: station.shiftChangeEvents,
-          calibrationChangeEvents: station.calibrationChangeEvents,
-          seasonChangeEvents: station.seasonChangeEvents,
-          fixshiftChangeCount: station.fixShiftCount,
-          receiptCoefficient: station.receiptCoefficient,
-          seasonCount: station.seasonCount,
-          processorCount: station.processorCount,
-          gunCount: station.pistolCount,
-          stationTotalSum: station.monthlySum,
-          currency: station.currency
-        });
-      });
-    }
+      return {
+        currency,
+        pricePerPistol: pistolRate,
+        rate: rateToAMD,
+      };
+    });
 
-    setEditingCurrency(null);
-    loadRates();
+    setRates(mergedRates);
+  };
+
+  const handleSave = async (rate: CurrencyRate) => {
+    try {
+      // 1️⃣ Найдём id для pistolRates (цены)
+      const pistolItem = pistolRatesData?.data?.find(
+        (p: any) => p.currencyType === rate.currency
+      );
+
+      // 2️⃣ Найдём id для exchangeRates (курса)
+      const exchangeItem = exchangeRatesData?.data?.find(
+        (e: any) => e.toCurrencyType === rate.currency
+      );
+
+      // 3️⃣ Подготовим DTO в нужном формате
+      const pistolRatesDto = {
+        rates: [
+          {
+            id: pistolItem?.id,
+            rate: rate.pricePerPistol,
+          },
+        ],
+      };
+
+      const exchangeRatesDto = {
+        rates: [
+          {
+            id: exchangeItem?.id,
+            rate: 1 / rate.rate, // т.к. backend хранит прямой курс AMD→X
+          },
+        ],
+      };
+
+      // 4️⃣ Отправим запросы
+      await changePistolRates(pistolRatesDto).unwrap();
+
+      if (rate.currency !== 'AMD' && exchangeItem?.id) {
+        await changeExchangeRates(exchangeRatesDto).unwrap();
+      }
+
+      // 5️⃣ Обновим UI
+      setEditingCurrency(null);
+      loadRates();
+    } catch (error) {
+      console.error('Ошибка при сохранении курса:', error);
+      alert('Ошибка при обновлении данных. Проверьте соединение или формат запроса.');
+    }
   };
 
   const formatNumber = (num: number) => {
@@ -77,7 +123,7 @@ export function PricingManager({ onClose }: PricingManagerProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Управление Ценами (Форма 5)</DialogTitle>
         </DialogHeader>
@@ -144,7 +190,7 @@ export function PricingManager({ onClose }: PricingManagerProps) {
                             onClick={() => {
                               const priceInput = document.getElementById(`price-${rate.currency}`) as HTMLInputElement;
                               const rateInput = document.getElementById(`rate-${rate.currency}`) as HTMLInputElement;
-                              
+
                               handleSave({
                                 currency: rate.currency,
                                 pricePerPistol: parseFloat(priceInput.value) || rate.pricePerPistol,
