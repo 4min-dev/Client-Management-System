@@ -115,6 +115,15 @@ export const stationService = createApi({
                 body: station
             }),
             invalidatesTags: ['Stations'],
+        }),
+
+        updateStation: builder.mutation<any, any>({
+            query: (data) => ({
+                url: `update/${data.stationId}`,
+                method: 'PATCH',
+                body: data
+            }),
+            invalidatesTags: ['Stations']
         })
     }),
 });
@@ -123,5 +132,6 @@ export const {
     useGetStationOptionsQuery,
     useUpdateStationSyncMutation,
     useDeleteStationMutation,
-    useAddStationMutation
+    useAddStationMutation,
+    useUpdateStationMutation
 } = stationService;

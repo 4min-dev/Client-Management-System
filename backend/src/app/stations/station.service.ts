@@ -24,6 +24,7 @@ import { Cache } from 'cache-manager';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { DeleteStationDto } from './dto/deleteStation.dto';
 import { Request } from 'express';
+import { UpdateStationDto } from './dto/updateStationDto.dto';
 
 @Injectable()
 export class StationService {
@@ -340,5 +341,62 @@ export class StationService {
 
     await Promise.all(updates);
     return { success: true };
+  }
+
+  async updateStation(stationId: string, dto: UpdateStationDto) {
+    const station = await this.prisma.station.findUnique({
+      where: { id: stationId },
+      include: { contact: true },
+    });
+
+    if (!station) {
+      throw new NotFoundException(`Станция с ID ${stationId} не найдена`);
+    }
+
+    const updateData: any = {};
+
+    if (dto.country !== undefined) updateData.country = dto.country;
+    if (dto.city !== undefined) updateData.city = dto.city;
+    if (dto.address !== undefined) updateData.address = dto.address;
+    if (dto.processorCount !== undefined) updateData.procCount = dto.processorCount;
+    if (dto.pistolCount !== undefined) updateData.pistolCount = dto.pistolCount;
+    if (dto.currency !== undefined) updateData.currencyType = dto.currency;
+    if (dto.discount !== undefined) updateData.discount = dto.discount;
+    if (dto.status !== undefined) updateData.status = dto.status;
+
+    if (dto.responsibleName !== undefined || dto.responsibleDescription !== undefined) {
+      if (!station.contactId) {
+
+        const newContact = await this.prisma.contact.create({
+          data: {
+            isOwner: false,
+            name: dto.responsibleName ?? '',
+            description: dto.responsibleDescription ?? '',
+          },
+        });
+        updateData.contact = { connect: { id: newContact.id } };
+      } else {
+
+        updateData.contact = {
+          update: {
+            where: { id: station.contactId },
+            data: {
+              name: dto.responsibleName,
+              description: dto.responsibleDescription,
+            },
+          },
+        };
+      }
+    }
+
+    return this.prisma.station.update({
+      where: { id: stationId },
+      data: updateData,
+      include: {
+        contact: true,
+        stationsOptions: true,
+        cryptoKey: true,
+      },
+    });
   }
 }

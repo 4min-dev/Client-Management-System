@@ -144,6 +144,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         country: s.country,
         procCount: s.procCount,
         pistolCount: s.pistolCount,
+        status: s.status,
         discount: s.discount,
         synchronize: s.synchronize,
         responsibleName: company.responsibleContact ? company.responsibleContact.name : '',
@@ -191,10 +192,11 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   const totalPistols = firms.reduce((sum, firm) => sum + firm.totalPistols, 0);
 
   const getStatusIcon = (firmStations: Station[], isDeleted: boolean) => {
+    console.log(firmStations)
     if (isDeleted) return <XCircle className="w-5 h-5 text-red-600" />;
 
-    const hasActive = firmStations.some((s) => s.status === 'active');
-    const hasInactive = firmStations.some((s) => s.status === 'inactive');
+    const hasActive = firmStations.some((s) => s.status?.toLowerCase() === 'active');
+    const hasInactive = firmStations.some((s) => s.status?.toLowerCase() === 'inactive');
 
     if (hasActive && hasInactive) {
       return <AlertCircle className="w-5 h-5 text-yellow-600" />;
@@ -458,8 +460,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
       {showAddClient && (
         <AddClientDialog
           onClose={() => setShowAddClient(false)}
-          onSave={() => {
-            loadFirms();
+          onSave={async () => {
+            await refetchCompanies()
             setShowAddClient(false);
           }}
         />

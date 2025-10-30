@@ -26,6 +26,7 @@ import { UpdateStationSyncDto } from './dto/updateStationSync.dto';
 import { DeleteStationDto } from './dto/deleteStation.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/infrastructure/auth/jwt.guard';
+import { UpdateStationDto } from './dto/updateStationDto.dto';
 
 @Controller('station')
 export class StationController {
@@ -183,5 +184,20 @@ export class StationController {
     await this.stationService.updateStationSync(stationId, dto);
 
     return { success: true };
+  }
+
+  @Patch('update/:stationId')
+  @UseGuards(JwtAuthGuard)
+  async updateStation(
+    @Param('stationId') stationId: string,
+    @Body() dto: UpdateStationDto,
+    @Req() request: Request,
+  ) {
+    const user = request.user as any;
+    if (!user?.userId) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    return this.stationService.updateStation(stationId, dto);
   }
 }
