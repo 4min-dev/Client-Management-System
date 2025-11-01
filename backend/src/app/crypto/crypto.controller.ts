@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Request } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Patch, Post, Request } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CryptoService } from './crypto.service';
 import { CryptDto } from './dto/crypt.dto';
@@ -14,7 +14,7 @@ export class CryptoController {
     private cryptoService: CryptoService,
     private configService: ConfigService,
     private stationService: StationService,
-  ) {}
+  ) { }
 
   @Get('key')
   getBackendKey(@Request() req) {
@@ -36,31 +36,26 @@ export class CryptoController {
   }
 
   @Post('key')
-  @ApiResponse({ status: 404, description: 'Station not found' })
-  @ApiResponse({
-    status: 406,
-    description: 'MAC address is invalid',
-  })
-  async createKey(@Request() req, @Body() dto: CryptDto) {
-    var backendCryptKey = this.configService.get('CRYPTO_KEY');
-    var encryptedData = await this.cryptoService.decryptData(
-      dto.data,
-      backendCryptKey,
+  async createKey(@Body() dto: CryptDto) {
+    const backendKey = this.configService.get<string>('CRYPTO_KEY');
+
+    const payloadStr = Buffer.from(dto.data, 'base64').toString('utf-8');
+    const { stationId, macAddress, key: oldKey } = JSON.parse(payloadStr);
+
+    const newStationKey = await this.stationService.upsertStationKey(
+      stationId,
+      macAddress,
+      oldKey
     );
 
-    var decryptedData: CreateStationCryptoKeyDto = JSON.parse(encryptedData);
+    const responsePayload = JSON.stringify({
+      key: newStationKey.key,
+      expiredAt: newStationKey.expiredAt,
+    });
 
-    var newStationKey = await this.stationService.upsertStationKey(
-      decryptedData.stationId,
-      decryptedData.macAddress,
-    );
+    const encrypted = await this.cryptoService.cryptData(responsePayload, backendKey);
 
-    return this.cryptoService.cryptData(
-      JSON.stringify(
-        new CryptKeyResponse(newStationKey.key, newStationKey.expiredAt),
-      ),
-      backendCryptKey,
-    );
+    return { data: encrypted };
   }
 
   @Patch('key')

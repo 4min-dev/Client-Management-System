@@ -25,6 +25,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { DeleteStationDto } from './dto/deleteStation.dto';
 import { Request } from 'express';
 import { UpdateStationDto } from './dto/updateStationDto.dto';
+import { NetworkService } from '../network/network.service';
 
 @Injectable()
 export class StationService {
@@ -33,6 +34,7 @@ export class StationService {
     private cryptoService: CryptoService,
     private configService: ConfigService,
     private companyService: CompanyService,
+    private readonly networkService: NetworkService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
   }
@@ -115,62 +117,51 @@ export class StationService {
 
   async upsertStationKey(
     stationId: string,
-    macAddress: string,
-    key: string | undefined = undefined,
+    macAddress?: string,
+    oldKey?: string,
   ): Promise<StationCryptoKey> {
-    const station = await this.prisma.station.findFirst({
-      where: {
-        id: stationId,
-      },
-      include: {
-        cryptoKey: true,
-      },
-    });
-
-    if (!station) {
-      throw new NotFoundException();
+    if (!macAddress) {
+      macAddress = await this.networkService.getMacAddress();
     }
 
-    if (
-      (station.macAddress != null &&
-        station.macAddress != macAddress) ||
-      (key == undefined && station.cryptoKey != null) ||
-      (key != undefined && !(station.cryptoKey.key == key))
-    ) {
-      throw new NotAcceptableException();
+    const station = await this.prisma.station.findFirst({
+      where: { id: stationId },
+      include: { cryptoKey: true },
+    });
+
+    if (!station) throw new NotFoundException();
+
+    if (station.macAddress && station.macAddress !== macAddress) {
+      if (!oldKey || station.cryptoKey?.key !== oldKey) {
+        throw new NotAcceptableException('Для смены MAC нужен старый ключ');
+      }
     }
 
     const newKey = await this.cryptoService.generateKey();
+    const expiresIn = this.configService.get<number>('CRYPTO_KEY_EXPIRES_IN');
 
-    const keyExpires = this.configService.get<number>('CRYPTO_KEY_EXPIRES_IN');
-
-    const updatedStation = await this.prisma.station.update({
-      where: {
-        id: stationId,
-      },
-      include: {
-        cryptoKey: true,
-      },
+    const updated = await this.prisma.station.update({
+      where: { id: stationId },
       data: {
-        macAddress: macAddress,
+        macAddress,
         cryptoKey: {
           upsert: {
-            update: {
-              stationId: stationId,
-              key: newKey,
-              expiredAt: dayjs().add(keyExpires, 's').toDate(),
-            },
             create: {
-              stationId: stationId,
+              stationId,
               key: newKey,
-              expiredAt: dayjs().add(keyExpires, 's').toDate(),
+              expiredAt: dayjs().add(expiresIn, 's').toDate(),
+            },
+            update: {
+              key: newKey,
+              expiredAt: dayjs().add(expiresIn, 's').toDate(),
             },
           },
         },
       },
+      include: { cryptoKey: true },
     });
 
-    return updatedStation.cryptoKey;
+    return updated.cryptoKey!;
   }
 
   async findOne(stationId: string) {
@@ -283,10 +274,8 @@ export class StationService {
         ? this.prisma.stationCryptoKey.delete({ where: { id: station.cryptoKeyId } })
         : this.prisma.$queryRaw`SELECT 1`,
 
-      // Удаляем станцию
       this.prisma.station.delete({ where: { id: stationId } }),
 
-      // Удаляем опции
       station.stationsOptionsId
         ? this.prisma.stationsOptions.delete({ where: { id: station.stationsOptionsId } })
         : this.prisma.$queryRaw`SELECT 1`,

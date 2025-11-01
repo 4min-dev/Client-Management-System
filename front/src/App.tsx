@@ -6,7 +6,9 @@ import { PricingManager } from './components/PricingManager';
 import { useUserAuthQuery } from './services/authService';
 import { useDispatch, useSelector } from 'react-redux';
 import { newUser } from './slices/userSlice';
-import { RootState } from './lib/types';
+import { getServerMacAddress } from './utils/network';
+
+const API_URL = import.meta.env.VITE_API_BASE_URL
 
 export default function App() {
 
@@ -20,6 +22,10 @@ export default function App() {
       dispatch(newUser({ user: authData.data }))
     }
   }, [authData])
+
+  useEffect(() => {
+    getServerMacAddress()
+  }, [])
 
   if ((!authData?.data?.id) && (!authData?.isSuccess)) {
     return (

@@ -42,12 +42,9 @@ export function PricingManager({ onClose }: PricingManagerProps) {
     const exchangeRates = exchangeRatesData.data;
     const pistolRates = pistolRatesData.data;
 
-    // Собираем итоговый массив
     const mergedRates: CurrencyRate[] = currencyList.map((currency: any) => {
-      // Находим цену за 1 пистолет
       const pistolRate = pistolRates.find((p: any) => p.currencyType === currency)?.rate ?? 0;
 
-      // Находим курс к AMD
       let rateToAMD = 1;
       if (currency === 'AMD') {
         rateToAMD = 1;
@@ -69,17 +66,14 @@ export function PricingManager({ onClose }: PricingManagerProps) {
 
   const handleSave = async (rate: CurrencyRate) => {
     try {
-      // 1️⃣ Найдём id для pistolRates (цены)
       const pistolItem = pistolRatesData?.data?.find(
         (p: any) => p.currencyType === rate.currency
       );
 
-      // 2️⃣ Найдём id для exchangeRates (курса)
       const exchangeItem = exchangeRatesData?.data?.find(
         (e: any) => e.toCurrencyType === rate.currency
       );
 
-      // 3️⃣ Подготовим DTO в нужном формате
       const pistolRatesDto = {
         rates: [
           {
@@ -98,14 +92,12 @@ export function PricingManager({ onClose }: PricingManagerProps) {
         ],
       };
 
-      // 4️⃣ Отправим запросы
       await changePistolRates(pistolRatesDto).unwrap();
 
       if (rate.currency !== 'AMD' && exchangeItem?.id) {
         await changeExchangeRates(exchangeRatesDto).unwrap();
       }
 
-      // 5️⃣ Обновим UI
       setEditingCurrency(null);
       loadRates();
     } catch (error) {
@@ -123,7 +115,7 @@ export function PricingManager({ onClose }: PricingManagerProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="!max-w-4xl overflow-auto">
         <DialogHeader>
           <DialogTitle>Управление Ценами (Форма 5)</DialogTitle>
         </DialogHeader>

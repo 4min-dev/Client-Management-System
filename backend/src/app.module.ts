@@ -10,9 +10,11 @@ import { CurrencyModule } from './app/currencies/currency.module';
 import { FuelModule } from './app/fuel/fuel.module';
 import { StationEventsModule } from './app/stationEvents/stationEvents.module';
 import { DatabaseModule } from 'prisma/database.module';
+import { NetworkModule } from './app/network/network.module';
 
 @Module({
   imports: [
+    NetworkModule,
     DatabaseModule,
     AuthModule,
     UserModule,

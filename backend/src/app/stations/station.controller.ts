@@ -10,6 +10,7 @@ import {
   Req,
   UnauthorizedException,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StationService } from './station.service';
@@ -171,6 +172,8 @@ export class StationController {
     @Param('stationId') stationId: string,
     @Body() body: { data: string },
   ) {
+    console.log('Received encrypted:', body.data);
+
     const station = await this.stationService.findOne(stationId);
     const stationKey = station.cryptoKey?.key;
 
@@ -178,8 +181,19 @@ export class StationController {
       throw new NotAcceptableException('Station doesnt have cryptokey');
     }
 
+    console.log('Using stationKey:', stationKey);
+
     const decrypted = await this.cryptoService.decryptData(body.data, stationKey);
-    const dto: UpdateStationSyncDto = JSON.parse(decrypted);
+    console.log('Decrypted:', decrypted);
+
+    let dto: UpdateStationSyncDto;
+    try {
+      dto = JSON.parse(decrypted);
+    } catch (err) {
+      console.error('JSON parse error:', err);
+      console.error('Decrypted string:', decrypted);
+      throw new BadRequestException('Invalid JSON after decryption');
+    }
 
     await this.stationService.updateStationSync(stationId, dto);
 

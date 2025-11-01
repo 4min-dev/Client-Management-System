@@ -5,9 +5,9 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { Fuel, FuelOnList, Station } from '../lib/types';
-import { useGetStationOptionsQuery, useUpdateStationSyncMutation } from '../services/stationService';
-import { updateCryptoKey } from '../utils/crypto';
+import { useGetStationOptionsQuery, useInitializeStationKeyMutation, useUpdateStationSyncMutation } from '../services/stationService';
 import { useGetFuelListQuery } from '../services/fuelService';
+import { useInitializeStationKey } from '../hooks/useInitializeStationKey';
 
 interface StationDetailsDialogProps {
   station: Station;
@@ -15,30 +15,29 @@ interface StationDetailsDialogProps {
   onSave: () => void;
 }
 
-const CRYPTO_KEY = import.meta.env.VITE_CRYPTO_KEY
-const STATION_ID = import.meta.env.VITE_STATION_ID
-const MAC_ADDRESS = import.meta.env.VITE_MAC_ADDRESS
-
 export function StationDetailsDialog({ station, onClose, onSave }: StationDetailsDialogProps) {
-  const [updateStationSync] = useUpdateStationSyncMutation()
-  const { data: fuelTypes } = useGetFuelListQuery()
+  const { isReady, stationKey, refetch } = useInitializeStationKey(station.id);
+  const [updateStationSync] = useUpdateStationSyncMutation();
+  const { data: fuelTypes } = useGetFuelListQuery();
 
-  const { data: stationOptionsData, error, isLoading, refetch } = useGetStationOptionsQuery(
-    { stationId: STATION_ID, cryptoKey: CRYPTO_KEY },
-    { skip: !CRYPTO_KEY }
+  const { data: stationOptionsData, error } = useGetStationOptionsQuery(
+    { stationId: station.id, cryptoKey: stationKey! },
+    { skip: !isReady || !stationKey || !station.id }
   );
 
   useEffect(() => {
-    if (stationOptionsData && stationOptionsData?.metadata?.needUpdate?.key) {
-      console.log('Ключ устарел — обновляем...');
-      updateCryptoKey(STATION_ID, MAC_ADDRESS)
-        .then(() => {
-          console.log('Ключ обновлён — перезагружаем опции');
-          refetch();
-        })
-        .catch(console.error);
+    if (error && 'status' in error && error.status === 406) {
+      localStorage.removeItem('STATION_CRYPTO_KEY');
+      localStorage.removeItem('STATION_KEY_EXPIRES');
+      refetch();
     }
-  }, [stationOptionsData]);
+  }, [error, refetch]);
+
+  // useEffect(() => {
+  //   if ('status' in error! && error?.status === 406) {
+  //     updateCryptoKey(STATION_ID).then(() => refetch());
+  //   }
+  // }, [error]);
 
   const [details, setDetails] = useState<{
     shiftChangeEvents: 0 | 1,
@@ -59,27 +58,31 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
   });
 
   useEffect(() => {
-    console.log(station)
-    if (!stationOptionsData || !station.selectedFuelTypes) return
+    if (!stationOptionsData) return;
 
     setDetails({
-      shiftChangeEvents: stationOptionsData?.shiftChangeEvents,
-      calibrationChangeEvents: stationOptionsData?.calibrationChangeEvents,
-      seasonChangeEvents: stationOptionsData?.seasonChangeEvents,
-      fixShiftCount: stationOptionsData?.fixShiftCount,
-      receiptCoefficient: stationOptionsData?.receiptCoefficient,
-      seasonCount: stationOptionsData?.seasonCount,
-      selectedFuelTypes: station.selectedFuelTypes
-    })
-  }, [stationOptionsData])
+      shiftChangeEvents: stationOptionsData.shiftChangeEvents || 0,
+      calibrationChangeEvents: stationOptionsData.calibrationChangeEvents || 0,
+      seasonChangeEvents: stationOptionsData.seasonChangeEvents || 0,
+      fixShiftCount: stationOptionsData.fixShiftCount || 0,
+      receiptCoefficient: stationOptionsData.receiptCoefficient || 0,
+      seasonCount: (stationOptionsData.seasonCount as 1 | 2 | 3 | 4) || 1,
+      selectedFuelTypes: station.selectedFuelTypes || [],
+    });
+  }, [stationOptionsData, station]);
 
   const [showFuelSelection, setShowFuelSelection] = useState(false);
 
   const handleSave = async () => {
+    if (!isReady || !stationKey) {
+      alert('Ключ станции не готов. Подождите...');
+      return;
+    }
+
     try {
-      const res = await updateStationSync({
-        stationId: STATION_ID,
-        cryptoKey: CRYPTO_KEY,
+      await updateStationSync({
+        stationId: station.id,
+        cryptoKey: stationKey,
         payload: {
           fuels: details.selectedFuelTypes,
           options: {
@@ -88,15 +91,16 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
             receiptCoefficient: details.receiptCoefficient,
             seasonChangeEvents: details.seasonChangeEvents,
             seasonCount: details.seasonCount,
-            shiftChangeEvents: details.shiftChangeEvents
+            shiftChangeEvents: details.shiftChangeEvents,
           },
         },
       }).unwrap();
 
-      console.log(res)
       alert('Настройки обновлены!');
+      onSave();
     } catch (err: any) {
-      alert('Ошибка: ' + err.message);
+      console.error('Save error:', err);
+      alert('Ошибка: ' + (err?.data?.message || err.message));
     }
   };
 
@@ -244,11 +248,11 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Отмена
-            </Button>
-            <Button onClick={handleSave}>
-              Сохранить
+            <Button
+              onClick={handleSave}
+              disabled={!isReady || !stationKey}
+            >
+              {isReady ? 'Сохранить' : 'Загрузка ключа...'}
             </Button>
           </div>
         </div>
