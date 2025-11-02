@@ -174,13 +174,12 @@ model Contact {
 }
 
 model ExchangeRates {
-  id String @id @default(uuid())
-
+  id               String      @id @default(uuid())
   fromCurrencyType CurrencyType
   toCurrencyType   CurrencyType
-
-  rate Float
-
+  rate             Float
+  updatedAt        DateTime    @default(now()) @updatedAt
+  @@unique([fromCurrencyType, toCurrencyType])
   @@map("exchange_rates")
 }
 

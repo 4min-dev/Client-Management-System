@@ -25,7 +25,18 @@ export class CurrencyService {
   }
 
   getExchangeRates() {
-    return prisma.exchangeRates.findMany({});
+    return prisma.exchangeRates.findMany({
+      where: {
+        toCurrencyType: CurrencyType.AMD,
+      },
+      select: {
+        id: true,
+        fromCurrencyType: true,
+        rate: true,
+        updatedAt: true,
+      },
+      orderBy: { fromCurrencyType: 'asc' },
+    });
   }
 
   getPistolRates() {

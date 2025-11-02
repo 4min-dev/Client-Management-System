@@ -28,7 +28,17 @@ export class CurrencyController {
 
   @Get('/exchangeRates/list')
   async getExchangeRates() {
-    return this.currencyService.getExchangeRates();
+    const cacheKey = 'exchange_rates_list';
+    const cached = await this.cacheManager.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const rates = await this.currencyService.getExchangeRates();
+    await this.cacheManager.set(cacheKey, rates, 300000);
+
+    return rates;
   }
 
   @Get('/pistolRates/list')

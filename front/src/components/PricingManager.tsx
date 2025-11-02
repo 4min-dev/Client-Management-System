@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
 import {
   Table,
   TableBody,
@@ -11,29 +10,30 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { AppStore } from '../lib/store';
-import { ServerAPI } from '../lib/api';
 import type { CurrencyRate, Currency } from '../lib/types';
-import { useChangeExchangeRatesMutation, useChangePistolRatesMutation, useGetCurrencyListQuery, useGetExchangeRatesQuery, useGetPistolRatesQuery } from '../services/currencyService';
+import {
+  useChangePistolRatesMutation,
+  useGetCurrencyListQuery,
+  useGetExchangeRatesQuery,
+  useGetPistolRatesQuery,
+} from '../services/currencyService';
 
 interface PricingManagerProps {
   onClose: () => void;
 }
 
 export function PricingManager({ onClose }: PricingManagerProps) {
-  const { data: currencyData } = useGetCurrencyListQuery()
-  const { data: exchangeRatesData } = useGetExchangeRatesQuery()
-  const { data: pistolRatesData } = useGetPistolRatesQuery()
-  const [changePistolRates] = useChangePistolRatesMutation()
-  const [changeExchangeRates] = useChangeExchangeRatesMutation()
+  const { data: currencyData } = useGetCurrencyListQuery();
+  const { data: exchangeRatesData } = useGetExchangeRatesQuery();
+  const { data: pistolRatesData } = useGetPistolRatesQuery();
+  const [changePistolRates] = useChangePistolRatesMutation();
+
   const [rates, setRates] = useState<CurrencyRate[]>([]);
   const [editingCurrency, setEditingCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
     loadRates();
-  }, [currencyData,
-    exchangeRatesData,
-    pistolRatesData]);
+  }, [currencyData, exchangeRatesData, pistolRatesData]);
 
   const loadRates = () => {
     if (!currencyData?.data || !exchangeRatesData?.data || !pistolRatesData?.data) return;
@@ -49,9 +49,8 @@ export function PricingManager({ onClose }: PricingManagerProps) {
       if (currency === 'AMD') {
         rateToAMD = 1;
       } else {
-        const found = exchangeRates.find((r: any) => r.toCurrencyType === currency);
-        // курс записан от AMD к X, значит надо взять обратный 1 / rate
-        rateToAMD = found ? 1 / found.rate : 1;
+        const found = exchangeRates.find((r: any) => r.fromCurrencyType === currency);
+        rateToAMD = found ? found.rate : 1;
       }
 
       return {
@@ -70,46 +69,33 @@ export function PricingManager({ onClose }: PricingManagerProps) {
         (p: any) => p.currencyType === rate.currency
       );
 
-      const exchangeItem = exchangeRatesData?.data?.find(
-        (e: any) => e.toCurrencyType === rate.currency
-      );
+      if (!pistolItem?.id) {
+        throw new Error('Не найден ID для pistolRates');
+      }
 
       const pistolRatesDto = {
         rates: [
           {
-            id: pistolItem?.id,
+            id: pistolItem.id,
             rate: rate.pricePerPistol,
-          },
-        ],
-      };
-
-      const exchangeRatesDto = {
-        rates: [
-          {
-            id: exchangeItem?.id,
-            rate: 1 / rate.rate, // т.к. backend хранит прямой курс AMD→X
           },
         ],
       };
 
       await changePistolRates(pistolRatesDto).unwrap();
 
-      if (rate.currency !== 'AMD' && exchangeItem?.id) {
-        await changeExchangeRates(exchangeRatesDto).unwrap();
-      }
-
       setEditingCurrency(null);
       loadRates();
     } catch (error) {
-      console.error('Ошибка при сохранении курса:', error);
-      alert('Ошибка при обновлении данных. Проверьте соединение или формат запроса.');
+      console.error('Ошибка при сохранении цены:', error);
+      alert('Ошибка при обновлении цены. Проверьте соединение.');
     }
   };
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ru-RU', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(num);
   };
 
@@ -122,7 +108,7 @@ export function PricingManager({ onClose }: PricingManagerProps) {
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Цена за 1 пистолет и курс валют для конвертации в AMD
+            Цена за 1 пистолет. Курсы валют обновляются автоматически.
           </p>
 
           <Table>
@@ -145,48 +131,44 @@ export function PricingManager({ onClose }: PricingManagerProps) {
                   <TableRow key={rate.currency}>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{rate.currency}</TableCell>
+
                     <TableCell className="text-right">
                       {isEditing ? (
                         <Input
                           type="number"
                           step="0.01"
                           defaultValue={rate.pricePerPistol}
-                          className="text-right"
+                          className="w-24 text-right"
                           id={`price-${rate.currency}`}
                         />
                       ) : (
                         formatNumber(rate.pricePerPistol)
                       )}
                     </TableCell>
+
                     <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          defaultValue={rate.rate}
-                          className="text-right"
-                          id={`rate-${rate.currency}`}
-                        />
-                      ) : (
-                        formatNumber(rate.rate)
-                      )}
+                      {formatNumber(rate.rate)}
                     </TableCell>
+
                     <TableCell className="text-right">
                       {formatNumber(priceInAMD)}
                     </TableCell>
+
                     <TableCell>
                       {isEditing ? (
                         <div className="flex gap-1">
                           <Button
                             size="sm"
                             onClick={() => {
-                              const priceInput = document.getElementById(`price-${rate.currency}`) as HTMLInputElement;
-                              const rateInput = document.getElementById(`rate-${rate.currency}`) as HTMLInputElement;
+                              const priceInput = document.getElementById(
+                                `price-${rate.currency}`
+                              ) as HTMLInputElement;
 
                               handleSave({
                                 currency: rate.currency,
-                                pricePerPistol: parseFloat(priceInput.value) || rate.pricePerPistol,
-                                rate: parseFloat(rateInput.value) || rate.rate
+                                pricePerPistol:
+                                  parseFloat(priceInput.value) || rate.pricePerPistol,
+                                rate: rate.rate,
                               });
                             }}
                           >
@@ -217,8 +199,9 @@ export function PricingManager({ onClose }: PricingManagerProps) {
           </Table>
 
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>* При изменении цены или курса, автоматически обновляются цены для всех станций с данной валютой</p>
-            <p>* Данные отправляются на сервер для синхронизации с desktop программой</p>
+            <p>* Курсы валют обновляются автоматически каждые 30 минут</p>
+            <p>* Изменение цены за пистолет обновляет все станции с этой валютой</p>
+            <p>* Данные синхронизируются с desktop-программой</p>
           </div>
         </div>
       </DialogContent>
