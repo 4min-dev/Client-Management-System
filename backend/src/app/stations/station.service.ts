@@ -355,7 +355,7 @@ export class StationService {
 
     if (dto.responsibleName !== undefined || dto.responsibleDescription !== undefined) {
       if (!station.contactId) {
-
+        console.log('!station.contactId')
         const newContact = await this.prisma.contact.create({
           data: {
             isOwner: false,
@@ -365,7 +365,7 @@ export class StationService {
         });
         updateData.contact = { connect: { id: newContact.id } };
       } else {
-
+        console.log('station.contactId')
         updateData.contact = {
           update: {
             where: { id: station.contactId },
@@ -378,7 +378,10 @@ export class StationService {
       }
     }
 
-    return this.prisma.station.update({
+    console.log(updateData)
+
+
+    const result = await this.prisma.station.update({
       where: { id: stationId },
       data: updateData,
       include: {
@@ -387,5 +390,8 @@ export class StationService {
         cryptoKey: true,
       },
     });
+
+    console.log('AFTER UPDATE:', result);
+    return result;
   }
 }

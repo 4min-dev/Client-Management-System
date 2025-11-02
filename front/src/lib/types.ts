@@ -29,7 +29,7 @@ export interface Station {
   country: string;
   city: string;
   address: string;
-  processorCount: number;
+  procCount: number;
   pistolCount: number;
   currency: Currency;
   discount: number;
@@ -52,6 +52,16 @@ export interface Station {
   fixShiftCount: 0 | 1;
   receiptCoefficient: 0 | 1;
   seasonCount: 1 | 2 | 3 | 4;
+
+  contact: {
+    createdAt: Date,
+    description: string,
+    id: string,
+    isOwner: boolean,
+    name: string,
+    updatedAt: Date,
+    value: string | null
+  }
 
   selectedFuelTypes: Fuel[];
   stationsOnFuels: Fuel[];

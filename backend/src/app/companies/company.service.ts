@@ -72,6 +72,7 @@ export class CompanyService {
                 fuel: true,
               },
             },
+            contact: true
           },
         },
       },

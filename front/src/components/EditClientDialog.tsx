@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -54,7 +54,7 @@ export function EditClientDialog({
     return new Date(date).toLocaleDateString('ru-RU');
   };
 
-  const totalProcessors = firm.stations.reduce((sum, s) => sum + s.processorCount, 0);
+  const totalProcessors = firm.stations.reduce((sum, s) => sum + s.procCount, 0);
   const totalPistols = firm.stations.reduce((sum, s) => sum + s.pistolCount, 0);
 
   // Локальное изменение
@@ -186,18 +186,17 @@ export function EditClientDialog({
               </TableHeader>
               <TableBody>
                 {firm.stations.map((station, index) => {
+                  console.log(station)
                   const edited = editedStations[station.id] || {};
-
                   return (
                     <TableRow key={station.id}>
                       <TableCell>{index + 1}</TableCell>
 
-                      {/* Ответственный */}
                       <TableCell>
                         {editMode ? (
                           <>
                             <Input
-                              value={edited.responsibleName ?? station.responsibleName ?? ''}
+                              value={edited.responsibleName ?? station.contact.name ?? ''}
                               onChange={(e) => handleInputChange(station.id, 'responsibleName', e.target.value)}
                               onKeyDown={handleKeyDown}
                               className="h-7 text-xs"
@@ -206,7 +205,7 @@ export function EditClientDialog({
                           </>
                         ) : (
                           <>
-                            <div>{station.responsibleName || '-'}</div>
+                            <div>{station.contact.name || '-'}</div>
                             {station.responsibleDescription && (
                               <div className="text-xs text-muted-foreground">
                                 {station.responsibleDescription}
@@ -266,13 +265,13 @@ export function EditClientDialog({
                         {editMode ? (
                           <Input
                             type="number"
-                            value={edited.processorCount ?? station.processorCount}
-                            onChange={(e) => handleInputChange(station.id, 'processorCount', parseInt(e.target.value) || 0)}
+                            value={edited.procCount ?? station.procCount}
+                            onChange={(e) => handleInputChange(station.id, 'procCount', parseInt(e.target.value) || 0)}
                             onKeyDown={handleKeyDown}
                             className="h-7 w-16 text-xs"
                           />
                         ) : (
-                          station.processorCount
+                          station.procCount
                         )}
                       </TableCell>
 

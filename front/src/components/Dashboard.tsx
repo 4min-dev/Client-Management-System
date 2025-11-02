@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AppStore } from '../lib/store';
-import { EventGenerator } from '../lib/eventGenerator';
 import type { Firm, Station } from '../lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -40,9 +38,7 @@ import { ContactsDialog } from './ContactsDialog';
 import { useGetCompaniesQuery, useSendMessageMutation, useDeleteCompanyMutation, useDeleteCompanyPermanentMutation } from '../services/companyService';
 import { MessageDialog } from './MessageDialog';
 import { DeleteCompanyDialog } from './DeleteCompanyDialog';
-import { useGetStationOptionsQuery } from '../services/stationService';
-import { updateCryptoKey } from '../utils/crypto';
-import { useGetEventsQuery, useLazyGetEventsQuery } from '../services/eventService';
+import { useLazyGetEventsQuery } from '../services/eventService';
 
 interface DashboardProps {
   onManageFuelTypes: () => void;
@@ -150,7 +146,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         responsibleName: company.responsibleContact ? company.responsibleContact.name : '',
         responsibleContact: company.responsibleContact ? company.responsibleContact.value : '',
         firmContacts: new Array((company.ownerContact.value), (company.responsibleContact ? company.responsibleContact.value : '')),
-        selectedFuelTypes: s.stationsOnFuels
+        selectedFuelTypes: s.stationsOnFuels,
+        contact: s.contact
       }))
     };
   }
@@ -161,6 +158,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
 
   const loadFirms = () => {
     if (companiesData?.data) {
+      console.log(companiesData)
       console.log(companiesData)
       const mapped = companiesData.data.map(mapCompanyToFirm);
       setFirms(mapped);
@@ -186,6 +184,10 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
 
     return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
   });
+
+  useEffect(() => {
+    console.log(sortedFirms)
+  }, [sortedFirms])
 
   const totalSum = firms.reduce((sum, firm) => sum + firm.totalSum, 0);
   const totalProcessors = firms.reduce((sum, firm) => sum + firm.totalProcessors, 0);
