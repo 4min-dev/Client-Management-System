@@ -283,17 +283,17 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
       <div className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h1 className="text-2xl">Система Управления Клиентской Базой АЗС</h1>
-            <div className="flex gap-2">
-              <Button onClick={onManageFuelTypes} variant="outline">
-                Виды Топлива
+            <h1 className="text-xl sm:text-2xl">Система Управления Клиентской Базой АЗС</h1>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={onManageFuelTypes} size="sm" variant="outline">
+                Топливо
               </Button>
-              <Button onClick={onManagePricing} variant="outline">
+              <Button onClick={onManagePricing} size="sm" variant="outline">
                 Цены
               </Button>
-              <Button onClick={() => setShowAddClient(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Добавить Клиента
+              <Button onClick={() => setShowAddClient(true)} size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                Добавить
               </Button>
             </div>
           </div>
@@ -306,11 +306,11 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
             placeholder="Поиск по фирме, владельцу, стране, городу..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-md"
+            className="w-full"
           />
         </div>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="hidden lg:block bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -355,11 +355,11 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                   const unreadCount = getUnreadEventsCount(firm);
 
                   return (
-                    <TableRow key={firm.firmName}>
+                    <TableRow key={firm.id}>
                       <TableCell>{getStatusIcon(firm.stations, firm.isDeleted)}</TableCell>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>{firm.firmName}</TableCell>
-                      <TableCell id='firmOwnerName'>{firm.ownerName}</TableCell>
+                      <TableCell>{firm.ownerName}</TableCell>
                       <TableCell>
                         {hasMultipleResponsibles ? (
                           <button
@@ -407,15 +407,12 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                               </DropdownMenuItem>
                             </a>
                             <DropdownMenuItem onClick={() => {
-                              setShowSendMessage({
-                                status: true,
-                                companyId: firm.id
-                              })
+                              setShowSendMessage({ status: true, companyId: firm.id })
                             }}>
                               <MessageSquare className="w-4 h-4 mr-2" />
                               Сообщение
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setShowEvents((prev) => ({ ...prev, status: true, company: firm }))}>
+                            <DropdownMenuItem onClick={() => setShowEvents(prev => ({ ...prev, status: true, company: firm }))}>
                               <Bell className="w-4 h-4 mr-2" />
                               События {unreadCount > 0 && `(${unreadCount})`}
                             </DropdownMenuItem>
@@ -428,13 +425,16 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {/* Sync logic */ }}>
                               <RefreshCw className="w-4 h-4 mr-2" />
-                              Синхронизация Оплаты
+                              Синхронизация
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setShowDeletePassword({ status: true, companyId: firm.id, isPermanent: firm.isDeleted });
-                            }} className="text-red-600">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setShowDeletePassword({ status: true, companyId: firm.id, isPermanent: firm.isDeleted });
+                              }}
+                              className="text-red-600"
+                            >
                               <Trash2 className="w-4 h-4 mr-2" />
-                              {firm.isDeleted ? 'Удалить предоплату' : 'Удалить'}
+                              {firm.isDeleted ? 'Удалить навсегда' : 'Удалить'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -445,6 +445,119 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
               </TableBody>
             </Table>
           </div>
+        </div>
+
+        <div className="lg:hidden space-y-4">
+          {sortedFirms.map((firm, index) => {
+            const unreadCount = getUnreadEventsCount(firm);
+            const primaryStation = firm.stations[0];
+
+            return (
+              <div key={firm.id} className="bg-white rounded-lg shadow p-4 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(firm.stations, firm.isDeleted)}
+                    <span className="font-medium text-sm">#{index + 1}</span>
+                  </div>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="font-semibold text-lg">{firm.firmName}</h3>
+
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Владелец:</span> {firm.ownerName}
+                </p>
+
+                {firm.stations.length > 1 ? (
+                  <p className="text-sm text-blue-600 cursor-pointer" onClick={() => setShowContacts(firm)}>
+                    {firm.stations.length} станций...
+                  </p>
+                ) : (
+                  <div className="text-sm space-y-1 mt-1">
+                    <p><span className="font-medium">Адрес:</span> {primaryStation?.city}, {primaryStation?.country}</p>
+                    <p><span className="font-medium">Ответственный:</span> {primaryStation?.responsibleName || '-'}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mt-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Процессоры:</span>
+                    <span className="ml-1 font-medium">{firm.totalProcessors}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Пистолеты:</span>
+                    <span className="ml-1 font-medium">{firm.totalPistols}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Скидка:</span>
+                    <span className="ml-1 font-medium">{firm.avgDiscount.toFixed(1)}%</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Предоплата:</span>
+                    <span className="ml-1 font-medium">{formatNumber(firm.prepayment)}</span>
+                  </div>
+                </div>
+
+                {firm.oldestSyncDate && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Синхр: {formatDate(firm.oldestSyncDate)}
+                  </p>
+                )}
+
+                <div className="flex justify-between items-center mt-4 pt-3 border-t">
+                  <FirmActions firm={firm} onUpdate={loadFirms} />
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <a href={`tel:${firm.ownerPhone}`}>
+                        <DropdownMenuItem>
+                          <Phone className="w-4 h-4 mr-2" />
+                          Звонок
+                        </DropdownMenuItem>
+                      </a>
+                      <DropdownMenuItem onClick={() => setShowSendMessage({ status: true, companyId: firm.id })}>
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Сообщение
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowEvents(prev => ({ ...prev, status: true, company: firm }))}>
+                        <Bell className="w-4 h-4 mr-2" />
+                        События {unreadCount > 0 && `(${unreadCount})`}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedFirm(firm);
+                        setShowEditClient(true);
+                      }}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Редактировать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {/* Sync */ }}>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Синхронизация
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setShowDeletePassword({ status: true, companyId: firm.id, isPermanent: firm.isDeleted });
+                        }}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {firm.isDeleted ? 'Удалить навсегда' : 'Удалить'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -483,24 +596,20 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
           }}
           onMessageClick={() => {
             setShowEditClient(false)
-
-            setShowSendMessage({
-              status: true,
-              companyId: selectedFirm.id
-            })
+            setShowSendMessage({ status: true, companyId: selectedFirm.id })
           }}
           onEventsClick={() => {
             setShowEditClient(false)
-            setShowEvents((prev) => ({ ...prev, status: true, company: selectedFirm }))
+            setShowEvents(prev => ({ ...prev, status: true, company: selectedFirm }))
           }}
         />
       )}
 
       {showEvents.status && (
         <EventsDialog
-          handleCheckAsRead={() => setShowEvents((prev) => ({ ...prev, isEventsRefetch: prev.isEventsRefetch + 1 }))}
+          handleCheckAsRead={() => setShowEvents(prev => ({ ...prev, isEventsRefetch: prev.isEventsRefetch + 1 }))}
           company={showEvents.company}
-          onClose={() => setShowEvents((prev) => ({ ...prev, status: false }))}
+          onClose={() => setShowEvents(prev => ({ ...prev, status: false }))}
         />
       )}
 
@@ -511,14 +620,12 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         />
       )}
 
-      {
-        showSendMessage.status && (
-          <MessageDialog
-            onSave={(message: string) => handleSendMessage(showSendMessage.companyId, message)}
-            onClose={() => setShowSendMessage((prev) => ({ ...prev, status: false }))}
-          />
-        )
-      }
+      {showSendMessage.status && (
+        <MessageDialog
+          onSave={(message: string) => handleSendMessage(showSendMessage.companyId, message)}
+          onClose={() => setShowSendMessage(prev => ({ ...prev, status: false }))}
+        />
+      )}
     </div>
   );
 }

@@ -101,104 +101,196 @@ export function PricingManager({ onClose }: PricingManagerProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="!max-w-4xl overflow-auto">
+      <DialogContent className="!max-w-4xl overflow-y-auto p-4 sm:p-6 !max-h-150">
         <DialogHeader>
-          <DialogTitle>Управление Ценами (Форма 5)</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Управление Ценами (Форма 5)</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 mt-4">
           <p className="text-sm text-muted-foreground">
             Цена за 1 пистолет. Курсы валют обновляются автоматически.
           </p>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">№</TableHead>
-                <TableHead>Валюта</TableHead>
-                <TableHead className="text-right">Цена за 1 пистолет</TableHead>
-                <TableHead className="text-right">Курс к AMD</TableHead>
-                <TableHead className="text-right">Цена в AMD</TableHead>
-                <TableHead className="w-24">Действия</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rates.map((rate, index) => {
-                const isEditing = editingCurrency === rate.currency;
-                const priceInAMD = rate.pricePerPistol * rate.rate;
+          <div className="hidden lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">№</TableHead>
+                  <TableHead>Валюта</TableHead>
+                  <TableHead className="text-right">Цена за 1 пистолет</TableHead>
+                  <TableHead className="text-right">Курс к AMD</TableHead>
+                  <TableHead className="text-right">Цена в AMD</TableHead>
+                  <TableHead className="w-24">Действия</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rates.map((rate, index) => {
+                  const isEditing = editingCurrency === rate.currency;
+                  const priceInAMD = rate.pricePerPistol * rate.rate;
 
-                return (
-                  <TableRow key={rate.currency}>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>{rate.currency}</TableCell>
+                  return (
+                    <TableRow key={rate.currency}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>{rate.currency}</TableCell>
 
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          defaultValue={rate.pricePerPistol}
-                          className="w-24 text-right"
-                          id={`price-${rate.currency}`}
-                        />
-                      ) : (
-                        formatNumber(rate.pricePerPistol)
-                      )}
-                    </TableCell>
+                      <TableCell className="text-right">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            defaultValue={rate.pricePerPistol}
+                            className="w-24 text-right"
+                            id={`price-${rate.currency}`}
+                          />
+                        ) : (
+                          formatNumber(rate.pricePerPistol)
+                        )}
+                      </TableCell>
 
-                    <TableCell className="text-right">
-                      {formatNumber(rate.rate)}
-                    </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(rate.rate)}
+                      </TableCell>
 
-                    <TableCell className="text-right">
-                      {formatNumber(priceInAMD)}
-                    </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(priceInAMD)}
+                      </TableCell>
 
-                    <TableCell>
-                      {isEditing ? (
-                        <div className="flex gap-1">
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                const priceInput = document.getElementById(
+                                  `price-${rate.currency}`
+                                ) as HTMLInputElement;
+
+                                handleSave({
+                                  currency: rate.currency,
+                                  pricePerPistol:
+                                    parseFloat(priceInput.value) || rate.pricePerPistol,
+                                  rate: rate.rate,
+                                });
+                              }}
+                            >
+                              Сохранить
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingCurrency(null)}
+                            >
+                              Отмена
+                            </Button>
+                          </div>
+                        ) : (
                           <Button
                             size="sm"
-                            onClick={() => {
-                              const priceInput = document.getElementById(
-                                `price-${rate.currency}`
-                              ) as HTMLInputElement;
+                            variant="ghost"
+                            onClick={() => setEditingCurrency(rate.currency)}
+                          >
+                            Изменить
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
-                              handleSave({
-                                currency: rate.currency,
-                                pricePerPistol:
-                                  parseFloat(priceInput.value) || rate.pricePerPistol,
-                                rate: rate.rate,
-                              });
-                            }}
-                          >
-                            Сохранить
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setEditingCurrency(null)}
-                          >
-                            Отмена
-                          </Button>
-                        </div>
-                      ) : (
+          <div className="lg:hidden space-y-4">
+            {rates.map((rate, index) => {
+              const isEditing = editingCurrency === rate.currency;
+              const priceInAMD = rate.pricePerPistol * rate.rate;
+
+              return (
+                <div
+                  key={rate.currency}
+                  className="bg-white rounded-lg border p-4 space-y-3"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                    <span className="text-lg font-bold">{rate.currency}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-gray-500">Цена/пистолет:</span>
+                      <div className="font-medium">
+                        {isEditing ? (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            defaultValue={rate.pricePerPistol}
+                            className="w-full mt-1"
+                            id={`price-mobile-${rate.currency}`}
+                          />
+                        ) : (
+                          formatNumber(rate.pricePerPistol)
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-gray-500">Курс к AMD:</span>
+                      <div className="font-medium">{formatNumber(rate.rate)}</div>
+                    </div>
+
+                    <div className="col-span-2 text-right">
+                      <span className="text-gray-500">Итого в AMD:</span>
+                      <div className="font-semibold text-lg">{formatNumber(priceInAMD)}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t">
+                    {isEditing ? (
+                      <>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingCurrency(rate.currency)}
-                        >
-                          Изменить
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                          className="flex-1"
+                          onClick={() => {
+                            const input = document.getElementById(
+                              `price-mobile-${rate.currency}`
+                            ) as HTMLInputElement;
+                            const value = parseFloat(input.value) || rate.pricePerPistol;
 
-          <div className="text-xs text-muted-foreground space-y-1">
+                            handleSave({
+                              currency: rate.currency,
+                              pricePerPistol: value,
+                              rate: rate.rate,
+                            });
+                          }}
+                        >
+                          Сохранить
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => setEditingCurrency(null)}
+                        >
+                          Отмена
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="flex-1"
+                        onClick={() => setEditingCurrency(rate.currency)}
+                      >
+                        Изменить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1 pt-4 border-t">
             <p>* Курсы валют обновляются автоматически каждые 30 минут</p>
             <p>* Изменение цены за пистолет обновляет все станции с этой валютой</p>
             <p>* Данные синхронизируются с desktop-программой</p>
