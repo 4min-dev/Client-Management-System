@@ -68,6 +68,7 @@ export function FuelTypesManager({ onClose }: FuelTypesManagerProps) {
   const handleEdit = async (id: string, name: string) => {
     try {
       const response = await editFuel({ id, name })
+
       console.log(response)
       setEditingId(null);
     } catch (error) {
@@ -96,6 +97,17 @@ export function FuelTypesManager({ onClose }: FuelTypesManagerProps) {
   const handleDelete = async (id: string) => {
     try {
       const response = await deleteFuel(id)
+
+      if (
+        response.error &&
+        'data' in response.error &&
+        typeof (response.error.data as any) === 'object' &&
+        'message' in (response.error.data as any) &&
+        (response.error.data as any).message === 'Fuels has stations'
+      ) {
+        alert('Данное топливо используется на станциях');
+      }
+
       console.log(response)
     } catch (error) {
       console.log(error)

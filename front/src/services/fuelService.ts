@@ -1,6 +1,18 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi, fetchBaseQuery, FetchBaseQueryError, FetchBaseQueryMeta } from "@reduxjs/toolkit/query/react";
 import { FuelOnList, FuelType } from "../lib/types";
+import { SerializedError } from "@reduxjs/toolkit";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+interface ApiError {
+    error: {
+        message: string
+    }
+}
+
+interface CustomFetchError {
+    status?: number,
+    data: ApiError
+}
 
 export const fuelService = createApi({
     reducerPath: 'fuelService',
