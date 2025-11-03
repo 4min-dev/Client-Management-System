@@ -10,10 +10,11 @@ import { PrismaService } from 'src/infrastructure/database/prisma.service';
 import { Jwt2faStrategy } from 'src/infrastructure/auth/jwt2fa.strategy';
 import { JwtStrategy } from 'src/infrastructure/auth/jwt.strategy';
 import { AuthHelper } from 'src/infrastructure/auth/auth.helper';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -24,6 +25,7 @@ import { AuthHelper } from 'src/infrastructure/auth/auth.helper';
       }),
       inject: [ConfigService],
     }),
+    EmailModule
   ],
   controllers: [AuthController],
   providers: [
@@ -31,7 +33,7 @@ import { AuthHelper } from 'src/infrastructure/auth/auth.helper';
     PrismaService,
     ConfigService,
     UserService,
-    Jwt2faStrategy,
+    // Jwt2faStrategy,
     JwtStrategy,
     AuthHelper
   ],

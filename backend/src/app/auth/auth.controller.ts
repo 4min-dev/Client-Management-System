@@ -32,39 +32,43 @@ export class AuthController {
     return this.authService.logIn(signInDto.login, signInDto.password);
   }
 
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @Post('2fa/login')
-  signIn2FA(@Request() req, @Body() signInDto: LogIn2FADto) {
-    return this.authService.logIn2FA(req.user.id, signInDto.code);
+  @Post('login/verify')
+  async verifyLogin(@Body() dto: { code: string }) {
+    return this.authService.verifyOTP(dto.code);
   }
 
+  // @ApiBearerAuth()
+  // @UseGuards(JwtAuthGuard)
+  // @Post('2fa/login')
+  // signIn2FA(@Request() req, @Body() signInDto: LogIn2FADto) {
+  //   return this.authService.logIn2FA(req.user.id, signInDto.code);
+  // }
+
+  // @ApiBearerAuth()
+  // @UseGuards(JwtAuthGuard)
+  // @Get('2fa/generate')
+  // async generate2FA(@Request() req): Promise<any> {
+  //   var qr = await this.authService.generate2FAQR(req.user.id);
+
+  //   const base64 = qr.split(',')[1];
+  //   const buffer = Buffer.from(base64, 'base64');
+
+  //   const stream = new PassThrough();
+  //   stream.end(buffer);
+
+  //   // return new StreamableFile(stream, {
+  //   //   type: 'image/png',
+  //   //   disposition: `inline; filename="${'2faQR.png'}"`,
+  //   // });
+
+  //   return { qr, id: req.user.id }
+  // }
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  @Get('2fa/generate')
-  async generate2FA(@Request() req): Promise<any> {
-    var qr = await this.authService.generate2FAQR(req.user.id);
-
-    const base64 = qr.split(',')[1];
-    const buffer = Buffer.from(base64, 'base64');
-
-    const stream = new PassThrough();
-    stream.end(buffer);
-
-    // return new StreamableFile(stream, {
-    //   type: 'image/png',
-    //   disposition: `inline; filename="${'2faQR.png'}"`,
-    // });
-
-    return { qr, id: req.user.id }
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(Jwt2faAuthGuard)
   @Get('whoami')
   async getProfile(@Request() req) {
-    var user = await this.userService.find({ id: req.user.id });
-
-    return new WhoAmIResponseDto(user.id, user.login);
+    // req.user теперь = { userId: "...", login: "..." }
+    return new WhoAmIResponseDto(req.user.userId, req.user.login);
   }
 }

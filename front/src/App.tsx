@@ -3,23 +3,23 @@ import { LoginPage } from './components/LoginPage';
 import { Dashboard } from './components/Dashboard';
 import { FuelTypesManager } from './components/FuelTypesManager';
 import { PricingManager } from './components/PricingManager';
-import { useUserAuthQuery } from './services/authService';
+import { useWhoamiQuery } from './services/authService';
 import { useDispatch, useSelector } from 'react-redux';
 import { newUser } from './slices/userSlice';
 import { getServerMacAddress } from './utils/network';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL
+import { User } from './lib/types';
 
 export default function App() {
 
-  const { data: authData, refetch: refetchUserAuth } = useUserAuthQuery()
+  const { data: authData, refetch: refetchUserAuth } = useWhoamiQuery()
   const [showFuelTypes, setShowFuelTypes] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
   const dispatch = useDispatch()
 
   useEffect(() => {
+    console.log(authData)
     if (authData?.data) {
-      dispatch(newUser({ user: authData.data }))
+      dispatch(newUser({ user: authData.data as User }))
     }
   }, [authData])
 

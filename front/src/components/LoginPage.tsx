@@ -4,92 +4,60 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { Lock, User, Shield } from 'lucide-react';
-import { useGenerate2faQuery, useLogin2faMutation, useLoginMutation } from '../services/authService';
-import { RootState } from '../lib/types';
+import { Lock, User, Mail } from 'lucide-react';
+import { useLoginMutation, useVerifyOTPMutation } from '../services/authService';
 
 type LoginPageProps = {
-  onLogin: () => void
-}
+  onLogin: () => void;
+};
+
+const OTP_EMAIL = import.meta.env.VITE_OTP_EMAIL
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [showTwoFactor, setShowTwoFactor] = useState(false);
+  const [code, setCode] = useState('');
+  const [userId, setUserId] = useState('');
+  const [showCodeInput, setShowCodeInput] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [handleLogin] = useLoginMutation()
-  const [handle2faLogin] = useLogin2faMutation()
-  const { data: generated2fa } = useGenerate2faQuery(undefined, {
-    skip: !showTwoFactor,
-  })
 
-  const handleFirstStep = (e: React.FormEvent) => {
+  const [login] = useLoginMutation();
+  const [verifyOTP] = useVerifyOTPMutation();
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Mock authentication
-    setTimeout(async () => {
-      if (username === 'admin' && password === 'admin') {
-        setShowTwoFactor(true);
-        setLoading(false);
-      } else {
-        try {
-          const response = await handleLogin({ login: username, password })
-
-          if (response.error) {
-            setError('Неправильный логин или пароль')
-            return
-          }
-
-          const access = response.data.data.accessToken
-          sessionStorage.setItem('accessToken', access)
-
-          setShowTwoFactor(true)
-        } catch (error) {
-          setError('Неправильный логин или пароль');
-          setLoading(false);
-          // In real app: send notification to admin
-          console.log('Failed login attempt notification sent');
-        } finally {
-          setLoading(false);
-        }
-      }
-    }, 500);
-  };
-
-  const handleSecondStep = async (e: React.FormEvent) => {
-    e.preventDefault();
-
     try {
-      setError('');
-      setLoading(true);
+      const res = await login({ login: username, password }).unwrap();
 
-      const response = await handle2faLogin({ code: twoFactorCode, userId: generated2fa?.data?.id })
-
-      if (response?.data?.data?.accessToken) {
-        sessionStorage.setItem('accessToken', response.data.data.accessToken)
-        onLogin()
-      }
-
-    } catch (error) {
-      console.log(error)
-      setError('Произошла ошибка')
+      setUserId(res.userId);
+      setShowCodeInput(true);
+      setError('Код отправлен на OTP_EMAIL');
+    } catch (err: any) {
+      setError(err?.data?.message || 'Неверный логин или пароль');
     } finally {
       setLoading(false);
     }
+  };
 
-    // Mock 2FA verification
-    // setTimeout(() => {
-    //   if (twoFactorCode === '123456') {
-    //     onLogin();
-    //   } else {
-    //     setError('Неправильный код аутентификации');
-    //     setLoading(false);
-    //   }
-    // }, 500);
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await verifyOTP({ code }).unwrap();
+
+      sessionStorage.setItem('accessToken', res.data.accessToken);
+      onLogin();
+    } catch (err: any) {
+      setError(err?.data?.message || 'Неверный код');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,17 +66,19 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
             <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center">
-              <Shield className="w-8 h-8 text-white" />
+              <Mail className="w-8 h-8 text-white" />
             </div>
           </div>
           <CardTitle className="text-center">Система Управления АЗС</CardTitle>
           <CardDescription className="text-center">
-            {showTwoFactor ? 'Отсканируйте QR и введите код двухфакторной аутентификации' : 'Войдите в систему'}
+            {showCodeInput
+              ? 'Введите код из письма'
+              : 'Войдите в систему'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!showTwoFactor ? (
-            <form onSubmit={handleFirstStep} className="space-y-4">
+          {!showCodeInput ? (
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Логин</Label>
                 <div className="relative">
@@ -116,7 +86,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Введите логин"
+                    placeholder="admin"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"
@@ -131,7 +101,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Введите пароль"
+                    placeholder="admin"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
@@ -145,40 +115,33 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </Alert>
               )}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Проверка...' : 'Войти'}
+                {loading ? 'Отправка...' : 'Войти'}
               </Button>
               <p className="text-xs text-gray-500 text-center mt-4">
-                Для демо используйте: admin / admin<br />
-                Код 2FA: 123456
+                Демо: <strong>admin / admin</strong><br />
+                Код придёт на <strong>OTP_EMAIL</strong>
               </p>
             </form>
           ) : (
-            <form onSubmit={handleSecondStep} className="space-y-4">
+            <form onSubmit={handleVerify} className="space-y-4">
               <div className="space-y-2">
-                {
-                  generated2fa && generated2fa.data?.qr && (
-                    <div className='flex flex-col items-center'>
-                      <img src={generated2fa.data.qr ?? ''} alt="QR-код" />
-                    </div>
-                  )
-                }
-                <Label htmlFor="twoFactorCode">Код аутентификации</Label>
+                <Label htmlFor="code">Код из письма</Label>
                 <div className="relative">
-                  <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
-                    id="twoFactorCode"
+                    id="code"
                     type="text"
-                    placeholder="Введите 6-значный код"
-                    value={twoFactorCode}
-                    onChange={(e) => setTwoFactorCode(e.target.value)}
-                    className="pl-10"
+                    placeholder="123456"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    className="pl-10 text-center text-2xl tracking-widest"
                     maxLength={6}
                     required
                   />
                 </div>
               </div>
               {error && (
-                <Alert variant="destructive">
+                <Alert variant={error.includes('отправлен') ? 'default' : 'destructive'}>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -190,8 +153,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 variant="ghost"
                 className="w-full"
                 onClick={() => {
-                  setShowTwoFactor(false);
-                  setTwoFactorCode('');
+                  setShowCodeInput(false);
+                  setCode('');
                   setError('');
                 }}
               >
