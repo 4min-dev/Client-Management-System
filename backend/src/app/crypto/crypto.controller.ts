@@ -7,6 +7,10 @@ import { StationService } from '../stations/station.service';
 import { ApiResponse } from '@nestjs/swagger';
 import { CryptKeyResponse } from './dto/newCryptKey.response';
 import { CreateStationCryptoKeyDto } from '../stations/dto/createStationCryptoKey.dto';
+import { UseGuards } from '@nestjs/common';
+import { Param } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/infrastructure/auth/jwt.guard';
 
 @Controller('crypto')
 export class CryptoController {
@@ -85,5 +89,20 @@ export class CryptoController {
       ),
       backendCryptKey,
     );
+  }
+
+  @Get('key/:stationId')
+  @UseGuards(JwtAuthGuard)
+  async getStationKey(@Param('stationId') stationId: string) {
+    const station = await this.stationService.findOne(stationId);
+
+    if (!station.cryptoKey) {
+      throw new NotFoundException('Ключ не найден');
+    }
+
+    return {
+      key: station.cryptoKey.key,
+      expiredAt: station.cryptoKey.expiredAt,
+    };
   }
 }

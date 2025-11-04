@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getServerMacAddress } from '../utils/network';
-import { decryptWithStationKeyWeb, getBackendCryptoKey, decryptWithBackendKey } from '../utils/crypto';
+import { decryptWithBackendKey } from '../utils/crypto';
 import { stationService, useInitializeStationKeyMutation } from '../services/stationService';
 
 export function useInitializeStationKey(stationId: string) {
@@ -20,7 +20,7 @@ export function useInitializeStationKey(stationId: string) {
             console.log('Encrypted key data:', encryptedKeyData);
 
             const decryptedJson = await decryptWithBackendKey(encryptedKeyData);
-            console.log('Decrypted JSON:', decryptedJson)
+            console.log('Decrypted JSON:', decryptedJson);
 
             const { key } = JSON.parse(decryptedJson);
 
@@ -35,10 +35,11 @@ export function useInitializeStationKey(stationId: string) {
             console.log('Station key initialized:', key);
         } catch (err: any) {
             console.error('Key init failed:', err);
+            setIsReady(false);
         }
     };
 
-    useEffect(() => {
+    const loadKey = () => {
         const savedKey = localStorage.getItem(keyStorage);
         const expires = localStorage.getItem(expiresStorage);
 
@@ -46,17 +47,36 @@ export function useInitializeStationKey(stationId: string) {
             setStationKey(savedKey);
             setIsReady(true);
             console.log('Key loaded from storage:', savedKey);
+            return true;
         } else {
+            localStorage.removeItem(keyStorage);
+            localStorage.removeItem(expiresStorage);
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        if (!loadKey()) {
             console.log('No valid key, initializing...');
             initKey();
         }
     }, [stationId]);
 
-    const refetch = () => {
+    const refetch = async () => {
         localStorage.removeItem(keyStorage);
         localStorage.removeItem(expiresStorage);
-        initKey();
+        setIsReady(false);
+        setStationKey(null);
+        await initKey();
     };
 
-    return { isReady, stationKey, refetch };
+    const updateKey = (newKey: string, expiredAt: string) => {
+        localStorage.setItem(keyStorage, newKey);
+        localStorage.setItem(expiresStorage, expiredAt);
+        setStationKey(newKey);
+        setIsReady(true);
+        console.log('Station key updated after MAC reset:', newKey);
+    };
+
+    return { isReady, stationKey, refetch, updateKey };
 }

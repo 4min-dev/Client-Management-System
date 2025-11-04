@@ -68,7 +68,6 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('whoami')
   async getProfile(@Request() req) {
-    // req.user теперь = { userId: "...", login: "..." }
     return new WhoAmIResponseDto(req.user.userId, req.user.login);
   }
 }

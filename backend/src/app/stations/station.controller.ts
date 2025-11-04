@@ -28,12 +28,14 @@ import { DeleteStationDto } from './dto/deleteStation.dto';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/infrastructure/auth/jwt.guard';
 import { UpdateStationDto } from './dto/updateStationDto.dto';
+import { NetworkService } from '../network/network.service';
 
 @Controller('station')
 export class StationController {
   constructor(
     private cryptoService: CryptoService,
     private configService: ConfigService,
+    private networkService: NetworkService,
     private stationService: StationService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {
@@ -93,14 +95,21 @@ export class StationController {
   }
 
   @Get('synchronize/crypt/:stationId/options')
+  @UseGuards(JwtAuthGuard)
   async synchronizeOptions(
     @Param('stationId') stationId: string,
+    @Req() req: Request,
   ) {
+    const macAddress = await this.networkService.getMacAddress();
     const station = await this.stationService.findOne(stationId);
-    const stationKey = station.cryptoKey?.key;
 
+    if (station.macAddress && station.macAddress !== macAddress) {
+      throw new NotAcceptableException('MAC address mismatch');
+    }
+
+    const stationKey = station.cryptoKey?.key;
     if (!stationKey) {
-      throw new NotAcceptableException('Station doenst have cryptokey');
+      throw new NotAcceptableException('Station doesnt have cryptokey');
     }
 
     const responseDto = new SynchronizeOptionsDto(
@@ -118,10 +127,7 @@ export class StationController {
 
     await this.cacheManager.del(getOptionsChangedEventKey(stationId));
 
-    return this.cryptoService.cryptData(
-      JSON.stringify(responseDto),
-      stationKey,
-    );
+    return this.cryptoService.cryptData(JSON.stringify(responseDto), stationKey);
   }
 
   @Get('synchronize/crypt/:stationId/fuels')

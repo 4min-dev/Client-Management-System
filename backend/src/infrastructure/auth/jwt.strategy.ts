@@ -1,4 +1,3 @@
-// src/infrastructure/auth/jwt.strategy.ts
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
@@ -14,12 +13,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // ← ЭТОТ МЕТОД ВОЗВРАЩАЕТ req.user
   async validate(payload: any) {
     return {
-      userId: payload.userId,   // ← Теперь есть
-      login: payload.login,     // ← Теперь есть
-      // sub: payload.sub,      // ← Больше не нужен
+      userId: payload.userId,
+      login: payload.login,
+      // sub: payload.sub,
     };
   }
 }

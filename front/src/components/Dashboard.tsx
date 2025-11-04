@@ -147,7 +147,8 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         responsibleContact: company.responsibleContact ? company.responsibleContact.value : '',
         firmContacts: new Array((company.ownerContact.value), (company.responsibleContact ? company.responsibleContact.value : '')),
         selectedFuelTypes: s.stationsOnFuels,
-        contact: s.contact
+        contact: s.contact,
+        macAddress: s.macAddress
       }))
     };
   }

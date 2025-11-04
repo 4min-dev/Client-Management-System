@@ -35,7 +35,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
       setUserId(res.userId);
       setShowCodeInput(true);
-      setError('Код отправлен на OTP_EMAIL');
+      setError(`Код отправлен на ${OTP_EMAIL}`);
     } catch (err: any) {
       setError(err?.data?.message || 'Неверный логин или пароль');
     } finally {
@@ -117,9 +117,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Отправка...' : 'Войти'}
               </Button>
-              <p className="text-xs text-gray-500 text-center mt-4">
-                Демо: <strong>admin / admin</strong><br />
-                Код придёт на <strong>OTP_EMAIL</strong>
+              <p className="text-xs text-gray-500 text-center">
+                Код придёт на <strong>{OTP_EMAIL}</strong>
               </p>
             </form>
           ) : (

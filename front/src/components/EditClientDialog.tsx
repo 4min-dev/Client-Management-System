@@ -26,7 +26,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { StationDetailsDialog } from './StationDetailsDialog';
-import { useDeleteStationMutation, useUpdateStationMutation } from '../services/stationService';
+import { useDeleteStationMutation, useResetStationMacMutation, useUpdateStationMutation } from '../services/stationService';
 
 interface EditClientDialogProps {
   firm: Firm;
@@ -43,6 +43,7 @@ export function EditClientDialog({
   onMessageClick,
   onEventsClick
 }: EditClientDialogProps) {
+  const [resetMac] = useResetStationMacMutation()
   const [deleteStation] = useDeleteStationMutation();
   const [changeStation] = useUpdateStationMutation();
   const [editMode, setEditMode] = useState(false);
@@ -57,7 +58,6 @@ export function EditClientDialog({
   const totalProcessors = firm.stations.reduce((sum, s) => sum + s.procCount, 0);
   const totalPistols = firm.stations.reduce((sum, s) => sum + s.pistolCount, 0);
 
-  // Локальное изменение
   const handleInputChange = (stationId: string, field: keyof Station, value: any) => {
     setEditedStations(prev => ({
       ...prev,
@@ -68,7 +68,6 @@ export function EditClientDialog({
     }));
   };
 
-  // Сохранение всех изменений
   const saveAllChanges = async () => {
     if (Object.keys(editedStations).length === 0) {
       onClose();
@@ -89,7 +88,6 @@ export function EditClientDialog({
     }
   };
 
-  // Enter в любом инпуте
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       saveAllChanges();
@@ -116,11 +114,27 @@ export function EditClientDialog({
   };
 
   const handleMacRequest = async (station: Station) => {
-    if (station.macAddress && !confirm('Очистить MAC адрес и запросить новый?')) return;
-    const mac = await ServerAPI.requestMacAddress(station.id);
-    station.macAddress = mac;
-    AppStore.saveStation(station);
-    onSave();
+    if (!station.macAddress || !confirm('Сбросить MAC-адрес станции?')) return alert('MAC-адрес отсутствует');
+
+    const newMac = prompt('Новый MAC (пусто = авто)', '')?.trim();
+
+    try {
+      const result = await resetMac({
+        stationId: station.id,
+        newMacAddress: newMac || undefined,
+      }).unwrap();
+
+      localStorage.setItem(`STATION_CRYPTO_KEY_${station.id}`, result.key);
+      localStorage.setItem(`STATION_KEY_EXPIRES_${station.id}`, result.expiredAt);
+
+      alert(
+        `MAC сброшен!\nНовый ключ: ${result.key}\nДействует до: ${new Date(result.expiredAt).toLocaleString()}`
+      );
+
+      onSave();
+    } catch (error: any) {
+      alert(error?.data || 'Ошибка сброса MAC');
+    }
   };
 
   return (
@@ -357,7 +371,7 @@ export function EditClientDialog({
                           <Button
                             size="sm"
                             variant="ghost"
-                            title="MAC адрес"
+                            title="Очистить MAC адрес"
                             onClick={() => handleMacRequest(station)}
                           >
                             <Key className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { Fuel } from '../lib/types';
-import { decryptWithStationKeyWeb, encryptWithStationKeyWeb } from '../utils/crypto';
+import { decryptBackendResponse, decryptWithStationKeyWeb, encryptWithStationKeyWeb } from '../utils/crypto';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -171,6 +171,75 @@ export const stationService = createApi({
             },
         }),
 
+        getStationKey: builder.query<{ key: string; expiredAt: string }, string>({
+            query: (stationId) => ({
+                url: `/crypto/key/${stationId}`,
+                method: 'GET',
+            }),
+            providesTags: (result, error, stationId) => [{ type: 'Stations', id: stationId }],
+        }),
+
+        resetStationMac: builder.mutation<
+            { key: string; expiredAt: string },
+            { stationId: string; newMacAddress?: string }
+        >({
+            async queryFn({ stationId, newMacAddress }, { dispatch }) {
+                try {
+                    const keyResult = await dispatch(
+                        stationService.endpoints.getStationKey.initiate(stationId, { forceRefetch: true })
+                    ).unwrap();
+
+                    console.log('Текущий ключ станции:', keyResult.data.key);
+
+                    const payload = {
+                        stationId,
+                        macAddress: newMacAddress,
+                        key: keyResult.data.key,
+                    };
+                    const base64Payload = btoa(JSON.stringify(payload));
+
+                    const response = await fetch(`${BASE_URL}/crypto/key`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
+                        },
+                        body: JSON.stringify({ data: base64Payload }),
+                    });
+
+                    if (!response.ok) throw new Error(await response.text());
+
+                    const result = await response.json();
+                    console.log('Backend response:', result);
+
+                    const encryptedHex = result.data.data;
+                    const decrypted = await decryptBackendResponse(encryptedHex);
+                    console.log('Расшифровано (RAW):', decrypted);
+
+                    let parsed;
+                    try {
+                        parsed = JSON.parse(decrypted);
+                        console.log('Успешно распарсено:', parsed);
+                    } catch (e) {
+                        console.error('НЕ JSON:', decrypted);
+                        throw new Error('Сервер вернул невалидный JSON');
+                    }
+
+                    return { data: parsed };
+                } catch (err: any) {
+                    console.error('Ошибка сброса MAC:', err);
+                    return {
+                        error: {
+                            status: 'CUSTOM_ERROR' as const,
+                            statusText: 'MAC Reset Failed',
+                            error: err.message,
+                            data: err.message,
+                        } as FetchBaseQueryError,
+                    };
+                }
+            },
+            invalidatesTags: ['Stations'],
+        }),
     }),
 });
 
@@ -180,5 +249,7 @@ export const {
     useDeleteStationMutation,
     useAddStationMutation,
     useUpdateStationMutation,
-    useInitializeStationKeyMutation
+    useInitializeStationKeyMutation,
+    useGetStationKeyQuery,
+    useResetStationMacMutation
 } = stationService;

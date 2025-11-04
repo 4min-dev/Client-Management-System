@@ -129,16 +129,31 @@ export class StationService {
       include: { cryptoKey: true },
     });
 
-    if (!station) throw new NotFoundException();
+    if (!station) {
+      throw new NotFoundException('Станция не найдена');
+    }
 
     if (station.macAddress && station.macAddress !== macAddress) {
       if (!oldKey || station.cryptoKey?.key !== oldKey) {
         throw new NotAcceptableException('Для смены MAC нужен старый ключ');
       }
+
+      const macInUse = await this.prisma.station.findFirst({
+        where: {
+          macAddress,
+          id: { not: stationId },
+        },
+      });
+
+      if (macInUse) {
+        throw new NotAcceptableException(
+          `MAC-адрес ${macAddress} уже привязан к станции "${macInUse.id}"`
+        );
+      }
     }
 
     const newKey = await this.cryptoService.generateKey();
-    const expiresIn = this.configService.get<number>('CRYPTO_KEY_EXPIRES_IN');
+    const expiresIn = this.configService.get<number>('CRYPTO_KEY_EXPIRES_IN', 3600);
 
     const updated = await this.prisma.station.update({
       where: { id: stationId },
@@ -149,11 +164,11 @@ export class StationService {
             create: {
               stationId,
               key: newKey,
-              expiredAt: dayjs().add(expiresIn, 's').toDate(),
+              expiredAt: dayjs().add(expiresIn, 'second').toDate(),
             },
             update: {
               key: newKey,
-              expiredAt: dayjs().add(expiresIn, 's').toDate(),
+              expiredAt: dayjs().add(expiresIn, 'second').toDate(),
             },
           },
         },
