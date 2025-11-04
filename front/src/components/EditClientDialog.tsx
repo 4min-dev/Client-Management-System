@@ -16,7 +16,7 @@ import {
 } from './ui/table';
 import { AppStore } from '../lib/store';
 import { ServerAPI } from '../lib/api';
-import type { Firm, Station } from '../lib/types';
+import type { Currency, Firm, Station } from '../lib/types';
 import {
   Phone,
   MessageSquare,
@@ -26,7 +26,9 @@ import {
   Trash2
 } from 'lucide-react';
 import { StationDetailsDialog } from './StationDetailsDialog';
-import { useDeleteStationMutation, useResetStationMacMutation, useUpdateStationMutation } from '../services/stationService';
+import { useDeleteStationMutation, useGetStationOptionsQuery, useResetStationMacMutation, useUpdateStationMutation } from '../services/stationService';
+import { useStationOptions } from '../hooks/useStationOptions';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface EditClientDialogProps {
   firm: Firm;
@@ -201,7 +203,8 @@ export function EditClientDialog({
               </TableHeader>
               <TableBody>
                 {firm.stations.map((station, index) => {
-                  console.log(station)
+                  const { options } = useStationOptions(station.id)
+
                   const edited = editedStations[station.id] || {};
                   return (
                     <TableRow key={station.id}>
@@ -307,22 +310,27 @@ export function EditClientDialog({
 
                       {/* Детали */}
                       <TableCell className="text-xs">
-                        1-{station.shiftChangeEvents}/2-{station.calibrationChangeEvents}/
-                        3-{station.seasonChangeEvents}/4-{station.fuelTypeCount}/
-                        5-{station.fixShiftCount}/6-{station.receiptCoefficient}/
-                        7-{station.seasonCount}
+                        1-{options.shiftChangeEvents}/2-{options.calibrationChangeEvents}/
+                        3-{options.seasonChangeEvents}/4-{station.selectedFuelTypes.length}/
+                        5-{options.fixShiftCount}/6-{options.receiptCoefficient}/
+                        7-{options.seasonCount}
                       </TableCell>
 
                       {/* Валюта */}
                       <TableCell>
                         {editMode ? (
-                          <Input
-                            value={edited.currency ?? station.currency ?? ''}
-                            onChange={(e) => handleInputChange(station.id, 'currency', e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 text-xs"
-                            placeholder="USD"
-                          />
+                          <Select value={edited.currency || station.currency} onValueChange={(v: Currency) => handleInputChange(station.id, 'currency', v)}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="AMD">AMD</SelectItem>
+                              <SelectItem value="RUB">RUB</SelectItem>
+                              <SelectItem value="USD">USD</SelectItem>
+                              <SelectItem value="EUR">EUR</SelectItem>
+                              <SelectItem value="GEL">GEL</SelectItem>
+                            </SelectContent>
+                          </Select>
                         ) : (
                           station.currency || '-'
                         )}
