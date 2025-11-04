@@ -54,6 +54,8 @@ export function EditClientDialog({
   const [editedStations, setEditedStations] = useState<Record<string, Partial<Station>>>({});
 
   const formatDate = (date: Date) => {
+    if (!date) return '-'
+
     return new Date(date).toLocaleDateString('ru-RU');
   };
 
@@ -142,7 +144,7 @@ export function EditClientDialog({
   return (
     <>
       <Dialog open onOpenChange={onClose} className="mt-5">
-        <DialogContent className="!mt-5 !max-w-fit max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:!max-w-fit max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               <div className="space-y-1">
@@ -174,7 +176,7 @@ export function EditClientDialog({
             </div>
           </div>
 
-          <div className="max-w-fit">
+          <div className="sm:!max-w-fit max-sm:overflow-x-hidden">
             <Table>
               <TableHeader>
                 <TableRow>

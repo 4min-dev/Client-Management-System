@@ -149,7 +149,9 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         selectedFuelTypes: s.stationsOnFuels,
         contact: s.contact,
         macAddress: s.macAddress,
-        currency: s.currencyType
+        currency: s.currencyType,
+        licenseDate: s.licenseDate,
+        syncDate: s.synchronize,
       }))
     };
   }
