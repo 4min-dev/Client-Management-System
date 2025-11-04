@@ -56,7 +56,6 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
       licenseDate.setMonth(licenseDate.getMonth() + 1);
 
       const station: Station = {
-        id: AppStore.generateID(),
         firmName: formData.firmName,
         ownerName: formData.ownerName,
         responsibleName: formData.responsibleName || undefined,
@@ -66,7 +65,7 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
         country: formData.country,
         city: formData.city,
         address: formData.address,
-        processorCount: formData.processorCount,
+        procCount: formData.processorCount,
         pistolCount: formData.pistolCount,
         currency: formData.currency,
         discount: formData.discount,
@@ -101,7 +100,7 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
         ownerValue: formData.firmContacts[0],
         responsibleValue: formData.responsibleContacts[0],
         pistolCount: station.pistolCount,
-        procCount: station.processorCount,
+        procCount: station.procCount,
       });
 
       console.log(response)
@@ -124,7 +123,6 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>ID</Label>
               <Input value={AppStore.generateID()} disabled />
             </div>
             <div className="space-y-2">

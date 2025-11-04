@@ -282,7 +282,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h1 className="text-xl sm:text-2xl">Система Управления Клиентской Базой АЗС</h1>
             <div className="flex flex-wrap gap-2">
@@ -301,7 +301,7 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-4">
           <Input
             placeholder="Поиск по фирме, владельцу, стране, городу..."

@@ -139,8 +139,8 @@ export function EditClientDialog({
 
   return (
     <>
-      <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <Dialog open onOpenChange={onClose} className="mt-5">
+        <DialogContent className="!mt-5 !max-w-fit max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               <div className="space-y-1">
@@ -172,11 +172,12 @@ export function EditClientDialog({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-w-fit">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">№</TableHead>
+                  <TableHead>ID</TableHead>
                   <TableHead>Ответственный</TableHead>
                   <TableHead>Страна</TableHead>
                   <TableHead>Город</TableHead>
@@ -205,7 +206,7 @@ export function EditClientDialog({
                   return (
                     <TableRow key={station.id}>
                       <TableCell>{index + 1}</TableCell>
-
+                      <TableCell>{station.id}</TableCell>
                       <TableCell>
                         {editMode ? (
                           <>

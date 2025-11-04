@@ -104,7 +104,7 @@ export function EventsDialog({ handleCheckAsRead, company, firmName, onClose }: 
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+      <DialogContent className="!max-w-fit max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
             События {firmName ? `- ${firmName}` : '(все)'}
@@ -114,7 +114,7 @@ export function EventsDialog({ handleCheckAsRead, company, firmName, onClose }: 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 mt-4 overflow-auto">
+        <div className="space-y-4 mt-4 max-w-fit">
           <Input
             placeholder="Поиск событий..."
             value={searchTerm}
