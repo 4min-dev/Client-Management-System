@@ -9,7 +9,7 @@ export class CryptoService {
   constructor() { }
 
   async generateKey(length: number = 32) {
-    const bytes = randomBytes(Math.ceil(length / 2));
+    var bytes = randomBytes(Math.ceil(length / 2));
     return bytes.toString('hex').slice(0, length);
   }
 
@@ -18,54 +18,39 @@ export class CryptoService {
     salt: string = 'salt',
     keyLen: number = 32,
   ): Promise<Buffer> {
-    return await promisify(pbkdf2)(password, salt, 10000, keyLen, 'sha256');
+    return await (
+      await promisify(pbkdf2)
+    )(password, salt, 10000, keyLen, 'sha256');
   }
 
-  async cryptData(message: string, key: string): Promise<string> {
+  async cryptData(message: string, key: string) {
     const iv = randomBytes(16);
 
-    const keyBuffer = Buffer.from(key, 'hex');
-    if (keyBuffer.length !== 16) {
-      throw new BadRequestException(`Key must be 16 bytes (32 hex chars), got ${keyBuffer.length}`);
-    }
+    const byteKey = (await this.deriveKey(key, 'salt', 32)) as Buffer;
+    const cipher = createCipheriv('aes-256-ctr', byteKey, iv);
 
-    const cipher = createCipheriv('aes-128-ctr', keyBuffer, iv);
-
-    const encrypted = Buffer.concat([
-      cipher.update(message, 'utf8'),
+    const encryptedText = Buffer.concat([
+      cipher.update(message),
       cipher.final(),
     ]);
 
-    return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
+    return iv.toString('hex') + ':' + encryptedText.toString('hex');
   }
 
-  async decryptData(encrypted: string, key: string): Promise<string> {
-    console.log('decryptData: encrypted =', encrypted);
-    console.log('decryptData: key =', key);
-
-    const [ivHex, encryptedHex] = encrypted.split(':');
-    if (!ivHex || !encryptedHex) {
-      throw new BadRequestException(`Invalid format: ${encrypted}`);
-    }
+  async decryptData(cryptMessage: string, key: string) {
+    const [ivHex, encryptedHex] = cryptMessage.split(':');
+    const byteKey = (await this.deriveKey(key, 'salt', 32)) as Buffer;
 
     const iv = Buffer.from(ivHex, 'hex');
-    const encryptedBuffer = Buffer.from(encryptedHex, 'hex');
+    const encrypted = Buffer.from(encryptedHex, 'hex');
 
-    const keyBuffer = Buffer.from(key, 'hex');
-    if (keyBuffer.length !== 16) {
-      throw new BadRequestException(`Key must be 16 bytes, got ${keyBuffer.length}`);
-    }
-
-    const decipher = createDecipheriv('aes-128-ctr', keyBuffer, iv);
-
+    const decipher = createDecipheriv('aes-256-ctr', byteKey, iv);
     const decrypted = Buffer.concat([
-      decipher.update(encryptedBuffer),
+      decipher.update(encrypted),
       decipher.final(),
     ]);
 
-    const result = decrypted.toString('utf8');
-    console.log('Decrypted result:', result);
-    return result;
+    return decrypted.toString('utf-8');
   }
 
   async verifyPassword(password: string, userId: string): Promise<boolean> {

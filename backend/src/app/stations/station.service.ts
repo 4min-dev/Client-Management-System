@@ -393,7 +393,7 @@ export class StationService {
       }
     }
 
-    console.log(updateData)
+    console.log('Update Data:', updateData)
 
 
     const result = await this.prisma.station.update({

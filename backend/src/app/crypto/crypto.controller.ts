@@ -40,26 +40,35 @@ export class CryptoController {
   }
 
   @Post('key')
-  async createKey(@Body() dto: CryptDto) {
-    const backendKey = this.configService.get<string>('CRYPTO_KEY');
-
-    const payloadStr = Buffer.from(dto.data, 'base64').toString('utf-8');
-    const { stationId, macAddress, key: oldKey } = JSON.parse(payloadStr);
-
-    const newStationKey = await this.stationService.upsertStationKey(
-      stationId,
-      macAddress,
-      oldKey
+  @ApiResponse({ status: 404, description: 'Station not found' })
+  @ApiResponse({
+    status: 406,
+    description: 'MAC address is invalid',
+  })
+  async createKey(@Request() req, @Body() dto: CryptDto) {
+    var backendCryptKey = this.configService.get('CRYPTO_KEY');
+    var encryptedData = await this.cryptoService.decryptData(
+      dto.data,
+      backendCryptKey,
     );
 
-    const responsePayload = JSON.stringify({
-      key: newStationKey.key,
-      expiredAt: newStationKey.expiredAt,
-    });
+    var decryptedData: CreateStationCryptoKeyDto = JSON.parse(encryptedData);
 
-    const encrypted = await this.cryptoService.cryptData(responsePayload, backendKey);
+    console.log('create')
+    console.log(decryptedData)
 
-    return { data: encrypted };
+    var newStationKey = await this.stationService.upsertStationKey(
+      decryptedData.stationId,
+      decryptedData.macAddress,
+      decryptedData.key
+    );
+
+    return this.cryptoService.cryptData(
+      JSON.stringify(
+        new CryptKeyResponse(newStationKey.key, newStationKey.expiredAt),
+      ),
+      backendCryptKey,
+    );
   }
 
   @Patch('key')
@@ -76,7 +85,8 @@ export class CryptoController {
     );
 
     var decryptedData: UpdateStationCryptoKeyDto = JSON.parse(encryptedData);
-
+    console.log('update')
+    console.log(decryptedData)
     var newStationKey = await this.stationService.upsertStationKey(
       decryptedData.stationId,
       decryptedData.macAddress,
