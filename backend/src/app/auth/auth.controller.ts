@@ -10,15 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from 'src/infrastructure/auth/jwt.guard';
-import { LogInDto } from 'src/app/auth/dto/login.dto';
-import { Jwt2faAuthGuard } from 'src/infrastructure/auth/jwt2fa.guard';
+import { JwtAuthGuard } from '../../infrastructure/auth/jwt.guard';
+import { LogInDto } from './dto/login.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { LogIn2FADto } from 'src/app/auth/dto/login2fa.dto';
-import { createReadStream } from 'fs';
-import { PassThrough } from 'stream';
-import { UserService } from 'src/app/users/user.service';
-import { WhoAmIResponseDto } from 'src/app/auth/dto/whoami.response';
+import { UserService } from '../users/user.service';
+import { WhoAmIResponseDto } from './dto/whoami.response';
 
 @Controller('auth')
 export class AuthController {

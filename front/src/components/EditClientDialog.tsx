@@ -128,6 +128,8 @@ export function EditClientDialog({
         newMacAddress: newMac || undefined,
       }).unwrap();
 
+      console.log('Result mac reset:', result)
+
       localStorage.setItem(`STATION_CRYPTO_KEY_${station.id}`, result.key);
       localStorage.setItem(`STATION_KEY_EXPIRES_${station.id}`, result.expiredAt);
 

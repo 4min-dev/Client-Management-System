@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery, FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { Fuel } from '../lib/types';
-import { decryptBackendResponse, decryptWithStationKeyWeb, encryptWithStationKeyWeb } from '../utils/crypto';
+import { decryptBackendResponse, decryptWithStationKeyWeb, encryptWithBackendKeyWeb, encryptWithStationKeyWeb } from '../utils/crypto';
+import { getServerMacAddress } from '../utils/network';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -63,9 +64,8 @@ export const stationService = createApi({
         baseUrl: `${BASE_URL}`,
         prepareHeaders: (headers) => {
             const token = sessionStorage.getItem('accessToken');
-            if (token) {
-                headers.set('Authorization', `Bearer ${token}`);
-            }
+            if (token) headers.set('Authorization', `Bearer ${token}`);
+            headers.set('Content-Type', 'application/json');
             return headers;
         },
     }),
@@ -158,16 +158,40 @@ export const stationService = createApi({
             invalidatesTags: ['Stations']
         }),
 
-        initializeStationKey: builder.mutation<{ data: { data: string } }, { stationId: string; macAddress: string }>({
-            query: ({ stationId, macAddress }) => {
-                const payload = { stationId, macAddress };
-                const base64 = btoa(JSON.stringify(payload));
+        initializeStationKey: builder.mutation<
+            { key: string; expiredAt: string },
+            { stationId: string; macAddress: string }
+        >({
+            async queryFn({ stationId, macAddress }) {
+                try {
+                    const payload = JSON.stringify({ stationId, macAddress });
+                    const encrypted = await encryptWithBackendKeyWeb(payload);
 
-                return {
-                    url: '/crypto/key',
-                    method: 'POST',
-                    body: { data: base64 },
-                };
+                    const response = await fetch(`${BASE_URL}/crypto/key`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
+                        },
+                        body: JSON.stringify({ data: encrypted }),
+                    });
+
+                    if (!response.ok) throw new Error(await response.text());
+
+                    const result = await response.json();
+
+                    console.log('RAW RESPONSE:', result);
+                    console.log('result.data:', result.data);
+
+                    if (result.isSuccess && result.data) {
+                        const decrypted = await decryptBackendResponse(result.data);
+                        return { data: JSON.parse(decrypted) };
+                    }
+
+                    throw new Error('Invalid response format');
+                } catch (err: any) {
+                    return { error: { status: 'CUSTOM_ERROR', data: err.message } };
+                }
             },
         }),
 
@@ -183,20 +207,22 @@ export const stationService = createApi({
             { key: string; expiredAt: string },
             { stationId: string; newMacAddress?: string }
         >({
-            async queryFn({ stationId, newMacAddress }, { dispatch }) {
+            async queryFn({ stationId, newMacAddress }) {
                 try {
-                    const keyResult = await dispatch(
-                        stationService.endpoints.getStationKey.initiate(stationId, { forceRefetch: true })
-                    ).unwrap();
+                    const currentMac = await getServerMacAddress();
+                    const payload: any = { stationId };
+                    console.log('New mac address:', newMacAddress)
+                    console.log('Current mac address:', currentMac)
 
-                    console.log('Текущий ключ станции:', keyResult.data.key);
+                    const oldKey = localStorage.getItem(`STATION_CRYPTO_KEY_${stationId}`);
+                    if (!oldKey) throw new Error('Старый ключ не найден');
+                    payload.key = oldKey;
 
-                    const payload = {
-                        stationId,
-                        macAddress: newMacAddress,
-                        key: keyResult.data.key,
-                    };
-                    const base64Payload = btoa(JSON.stringify(payload));
+
+                    if (newMacAddress) payload.macAddress = newMacAddress;
+
+                    console.log('payload', payload)
+                    const encrypted = await encryptWithBackendKeyWeb(JSON.stringify(payload));
 
                     const response = await fetch(`${BASE_URL}/crypto/key`, {
                         method: 'POST',
@@ -204,41 +230,28 @@ export const stationService = createApi({
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
                         },
-                        body: JSON.stringify({ data: base64Payload }),
+                        body: JSON.stringify({ data: encrypted }),
                     });
 
-                    if (!response.ok) throw new Error(await response.text());
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        throw new Error(errText);
+                    }
 
                     const result = await response.json();
-                    console.log('Backend response:', result);
+                    if (!result.isSuccess || !result.data) throw new Error('Invalid response');
 
-                    const encryptedHex = result.data.data;
-                    const decrypted = await decryptBackendResponse(encryptedHex);
-                    console.log('Расшифровано (RAW):', decrypted);
+                    const decrypted = await decryptBackendResponse(result.data);
+                    const parsed = JSON.parse(decrypted);
 
-                    let parsed;
-                    try {
-                        parsed = JSON.parse(decrypted);
-                        console.log('Успешно распарсено:', parsed);
-                    } catch (e) {
-                        console.error('НЕ JSON:', decrypted);
-                        throw new Error('Сервер вернул невалидный JSON');
-                    }
+                    localStorage.setItem(`STATION_CRYPTO_KEY_${stationId}`, parsed.key);
+                    localStorage.setItem(`STATION_KEY_EXPIRES_${stationId}`, parsed.expiredAt);
 
                     return { data: parsed };
                 } catch (err: any) {
-                    console.error('Ошибка сброса MAC:', err);
-                    return {
-                        error: {
-                            status: 'CUSTOM_ERROR' as const,
-                            statusText: 'MAC Reset Failed',
-                            error: err.message,
-                            data: err.message,
-                        } as FetchBaseQueryError,
-                    };
+                    return { error: { status: 'CUSTOM_ERROR', data: err.message } };
                 }
             },
-            invalidatesTags: ['Stations'],
         }),
     }),
 });

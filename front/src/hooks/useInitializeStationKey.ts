@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getServerMacAddress } from '../utils/network';
-import { decryptWithBackendKey } from '../utils/crypto';
-import { stationService, useInitializeStationKeyMutation } from '../services/stationService';
+import { useInitializeStationKeyMutation } from '../services/stationService';
 
 export function useInitializeStationKey(stationId: string) {
     const [initialize] = useInitializeStationKeyMutation();
@@ -16,20 +15,17 @@ export function useInitializeStationKey(stationId: string) {
             const mac = await getServerMacAddress();
             const res = await initialize({ stationId, macAddress: mac }).unwrap();
 
-            const encryptedKeyData = res.data.data;
-            console.log('Encrypted key data:', encryptedKeyData);
-
-            const decryptedJson = await decryptWithBackendKey(encryptedKeyData);
-            console.log('Decrypted JSON:', decryptedJson);
-
-            const { key } = JSON.parse(decryptedJson);
+            const { key, expiredAt } = res;
 
             if (key.length !== 32) {
                 throw new Error(`Invalid station key length: ${key.length}`);
             }
 
+            const keyStorage = `STATION_CRYPTO_KEY_${stationId}`;
+            const expiresStorage = `STATION_KEY_EXPIRES_${stationId}`;
+
             localStorage.setItem(keyStorage, key);
-            localStorage.setItem(expiresStorage, new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString());
+            localStorage.setItem(expiresStorage, expiredAt);
             setStationKey(key);
             setIsReady(true);
             console.log('Station key initialized:', key);
@@ -56,10 +52,8 @@ export function useInitializeStationKey(stationId: string) {
     };
 
     useEffect(() => {
-        if (!loadKey()) {
-            console.log('No valid key, initializing...');
-            initKey();
-        }
+        console.log('No valid key, initializing...');
+        initKey();
     }, [stationId]);
 
     const refetch = async () => {

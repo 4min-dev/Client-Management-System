@@ -121,11 +121,8 @@ export function AddClientDialog({ onClose, onSave }: AddClientDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Input value={AppStore.generateID()} disabled />
-            </div>
-            <div className="space-y-2">
+          <div className="flex">
+            <div className="space-y-2 w-full">
               <Label>Фирма *</Label>
               <Input
                 value={formData.firmName}

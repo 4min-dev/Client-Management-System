@@ -44,78 +44,88 @@ export async function decryptData(encryptedData: string, key: string): Promise<s
     return new TextDecoder().decode(decryptedBuffer);
 }
 
-export async function encryptWithStationKeyWeb(data: string, keyHex: string) {
-    const keyBytes = Uint8Array.from(
-        keyHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
-    );
-
-    if (keyBytes.length !== 16) {
-        throw new Error(`Key must be 16 bytes (32 hex chars), got ${keyBytes.length}`);
+export async function encryptWithStationKeyWeb(data: string, stationKeyHex: string): Promise<string> {
+    if (stationKeyHex.length !== 32) {
+        throw new Error(`Station key must be 32 hex chars (16 bytes), got ${stationKeyHex.length}`);
     }
 
-    const key = await crypto.subtle.importKey(
+    const passwordBuffer = new TextEncoder().encode(stationKeyHex);
+    const salt = new TextEncoder().encode('salt');
+
+    const keyMaterial = await crypto.subtle.importKey(
         'raw',
-        keyBytes,
-        { name: 'AES-CTR' },
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt,
+            iterations: 10000,
+            hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
         false,
         ['encrypt']
     );
 
     const iv = crypto.getRandomValues(new Uint8Array(16));
-
     const encryptedBuffer = await crypto.subtle.encrypt(
-        {
-            name: 'AES-CTR',
-            counter: iv,
-            length: 128,
-        },
-        key,
+        { name: 'AES-CTR', counter: iv, length: 128 },
+        derivedKey,
         new TextEncoder().encode(data)
     );
 
-    const ivHex = Array.from(iv)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-    const encHex = Array.from(new Uint8Array(encryptedBuffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+    const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
+    const encHex = Array.from(new Uint8Array(encryptedBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
     return `${ivHex}:${encHex}`;
 }
 
 export async function decryptBackendResponse(encryptedHex: string): Promise<string> {
-    const backendKeyHex = getBackendCryptoKey();   // 32‑hex → 16 байт
     console.log('decryptBackendResponse: encryptedHex =', encryptedHex);
-    console.log('backendKeyHex =', backendKeyHex);
 
     const [ivHex, encryptedHexData] = encryptedHex.split(':');
     if (!ivHex || !encryptedHexData) {
         throw new Error(`Invalid encrypted format: ${encryptedHex}`);
     }
 
-    const iv = Uint8Array.from(ivHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-    const encryptedBuffer = Uint8Array.from(
-        encryptedHexData.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
-    );
+    const iv = Uint8Array.from(ivHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+    const encryptedBuffer = Uint8Array.from(encryptedHexData.match(/.{2}/g)!.map(b => parseInt(b, 16)));
 
-    const keyBytes = Uint8Array.from(
-        backendKeyHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16))
-    );
-    if (keyBytes.length !== 16) {
-        throw new Error(`Backend key must be 16 bytes (32 hex), got ${keyBytes.length}`);
-    }
+    const backendKeyHex = getBackendCryptoKey();
 
-    const key = await crypto.subtle.importKey(
+    const passwordBuffer = new TextEncoder().encode(backendKeyHex);
+    const salt = new TextEncoder().encode('salt');
+
+    const keyMaterial = await crypto.subtle.importKey(
         'raw',
-        keyBytes,
-        { name: 'AES-CTR' },
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt,
+            iterations: 10000,
+            hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
         false,
         ['decrypt']
     );
 
     const decryptedBuffer = await crypto.subtle.decrypt(
         { name: 'AES-CTR', counter: iv, length: 128 },
-        key,
+        derivedKey,
         encryptedBuffer
     );
 
@@ -178,43 +188,107 @@ export async function decryptWithBackendKey(encrypted: string): Promise<string> 
     return new TextDecoder().decode(decryptedBuffer);
 }
 
-export async function decryptWithStationKeyWeb(encryptedHex: string, keyHex: string): Promise<string> {
+export async function decryptWithStationKeyWeb(encryptedHex: string, stationKeyHex: string): Promise<string> {
     console.log('decryptWithStationKeyWeb: encryptedHex =', encryptedHex);
 
-    // 1. УБИРАЕМ atob() — данные уже "iv:hex"
     const [ivHex, encryptedHexData] = encryptedHex.split(':');
     if (!ivHex || !encryptedHexData) {
         throw new Error(`Invalid encrypted format: ${encryptedHex}`);
     }
 
-    console.log('ivHex:', ivHex);
-    console.log('encryptedHexData:', encryptedHexData);
+    const iv = Uint8Array.from(ivHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+    const encryptedBuffer = Uint8Array.from(encryptedHexData.match(/.{2}/g)!.map(b => parseInt(b, 16)));
 
-    // 2. Преобразуем hex → Uint8Array
-    const iv = Uint8Array.from(ivHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-    const encryptedBuffer = Uint8Array.from(encryptedHexData.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-
-    const keyBytes = Uint8Array.from(keyHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-
-    if (keyBytes.length !== 16) {
-        throw new Error(`Key must be 16 bytes (32 hex chars), got ${keyBytes.length}`);
+    if (stationKeyHex.length !== 32) {
+        throw new Error(`Station key must be 32 hex chars, got ${stationKeyHex.length}`);
     }
 
-    const key = await crypto.subtle.importKey(
+    const passwordBuffer = new TextEncoder().encode(stationKeyHex);
+    const salt = new TextEncoder().encode('salt');
+
+    const keyMaterial = await crypto.subtle.importKey(
         'raw',
-        keyBytes,
-        { name: 'AES-CTR' },
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt,
+            iterations: 10000,
+            hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
         false,
         ['decrypt']
     );
 
     const decryptedBuffer = await crypto.subtle.decrypt(
         { name: 'AES-CTR', counter: iv, length: 128 },
-        key,
+        derivedKey,
         encryptedBuffer
     );
 
     const result = new TextDecoder().decode(decryptedBuffer);
     console.log('Decrypted result:', result);
     return result;
+}
+
+export async function encryptWithBackendKeyWeb(data: string): Promise<string> {
+    const backendKeyHex = getBackendCryptoKey()
+    const keyBytes = Uint8Array.from(
+        backendKeyHex.match(/.{2}/g)!.map(b => parseInt(b, 16))
+    );
+
+    if (keyBytes.length !== 32) {
+        throw new Error(`Backend key must be 32 bytes (64 hex), got ${keyBytes.length}`);
+    }
+
+    const passwordBuffer = new TextEncoder().encode(backendKeyHex);
+    const salt = new TextEncoder().encode('salt');
+
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt,
+            iterations: 10000,
+            hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-CTR', length: 256 },
+        false,
+        ['encrypt']
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(16));
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        {
+            name: 'AES-CTR',
+            counter: iv,
+            length: 128,
+        },
+        derivedKey,
+        new TextEncoder().encode(data)
+    );
+
+    const ivHex = Array.from(iv)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    const encHex = Array.from(new Uint8Array(encryptedBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+
+    return `${ivHex}:${encHex}`;
 }
