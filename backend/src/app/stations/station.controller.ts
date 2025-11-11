@@ -95,19 +95,10 @@ export class StationController {
   }
 
   @Get('synchronize/crypt/:stationId/options')
-  @UseGuards(JwtAuthGuard)
-  async synchronizeOptions(
-    @Param('stationId') stationId: string,
-    @Req() req: Request,
-  ) {
-    const macAddress = await this.networkService.getMacAddress();
+  async synchronizeOptions(@Param('stationId') stationId: string) {
     const station = await this.stationService.findOne(stationId);
-
-    if (station.macAddress && station.macAddress !== macAddress) {
-      throw new NotAcceptableException('MAC address mismatch');
-    }
-
     const stationKey = station.cryptoKey?.key;
+
     if (!stationKey) {
       throw new NotAcceptableException('Station doesnt have cryptokey');
     }
@@ -201,6 +192,7 @@ export class StationController {
       throw new BadRequestException('Invalid JSON after decryption');
     }
 
+    console.log('dto', dto);
     await this.stationService.updateStationSync(stationId, dto);
 
     return { success: true };

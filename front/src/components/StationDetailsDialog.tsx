@@ -8,6 +8,8 @@ import type { Fuel, FuelOnList, Station } from '../lib/types';
 import { useGetStationOptionsQuery, useInitializeStationKeyMutation, useUpdateStationSyncMutation } from '../services/stationService';
 import { useGetFuelListQuery } from '../services/fuelService';
 import { useInitializeStationKey } from '../hooks/useInitializeStationKey';
+import { useStationOptions } from '../hooks/useStationOptions';
+import { encryptWithStationKeyWeb } from '../utils/crypto';
 
 interface StationDetailsDialogProps {
   station: Station;
@@ -20,18 +22,7 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
   const [updateStationSync] = useUpdateStationSyncMutation();
   const { data: fuelTypes } = useGetFuelListQuery();
 
-  const { data: stationOptionsData, error } = useGetStationOptionsQuery(
-    { stationId: station.id, cryptoKey: stationKey! },
-    { skip: !isReady || !stationKey || !station.id }
-  );
-
-  useEffect(() => {
-    if (error && 'status' in error && error.status === 406) {
-      localStorage.removeItem('STATION_CRYPTO_KEY');
-      localStorage.removeItem('STATION_KEY_EXPIRES');
-      refetch();
-    }
-  }, [error, refetch]);
+  const { options } = useStationOptions(station.id)
 
   // useEffect(() => {
   //   if ('status' in error! && error?.status === 406) {
@@ -58,49 +49,45 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
   });
 
   useEffect(() => {
-    if (!stationOptionsData) return;
+    console.log('options', options)
+    if (!options) return;
 
     setDetails({
-      shiftChangeEvents: stationOptionsData.shiftChangeEvents || 0,
-      calibrationChangeEvents: stationOptionsData.calibrationChangeEvents || 0,
-      seasonChangeEvents: stationOptionsData.seasonChangeEvents || 0,
-      fixShiftCount: stationOptionsData.fixShiftCount || 0,
-      receiptCoefficient: stationOptionsData.receiptCoefficient || 0,
-      seasonCount: (stationOptionsData.seasonCount as 1 | 2 | 3 | 4) || 1,
+      shiftChangeEvents: options.shiftChangeEvents || 0,
+      calibrationChangeEvents: options.calibrationChangeEvents || 0,
+      seasonChangeEvents: options.seasonChangeEvents || 0,
+      fixShiftCount: options.fixShiftCount || 0,
+      receiptCoefficient: options.receiptCoefficient || 0,
+      seasonCount: (options.seasonCount as 1 | 2 | 3 | 4) || 1,
       selectedFuelTypes: station.selectedFuelTypes || [],
     });
-  }, [stationOptionsData, station]);
+  }, [options, station]);
 
   const [showFuelSelection, setShowFuelSelection] = useState(false);
 
   const handleSave = async () => {
-    if (!isReady || !stationKey) {
-      alert('Ключ станции не готов. Подождите...');
-      return;
-    }
+    const payload = {
+      fuels: details.selectedFuelTypes,
+      options: {
+        calibrationChangeEvents: details.calibrationChangeEvents,
+        fixShiftCount: details.fixShiftCount,
+        receiptCoefficient: details.receiptCoefficient,
+        seasonChangeEvents: details.seasonChangeEvents,
+        seasonCount: details.seasonCount,
+        shiftChangeEvents: details.shiftChangeEvents,
+      },
+    };
 
     try {
       await updateStationSync({
         stationId: station.id,
-        cryptoKey: stationKey,
-        payload: {
-          fuels: details.selectedFuelTypes,
-          options: {
-            calibrationChangeEvents: details.calibrationChangeEvents,
-            fixShiftCount: details.fixShiftCount,
-            receiptCoefficient: details.receiptCoefficient,
-            seasonChangeEvents: details.seasonChangeEvents,
-            seasonCount: details.seasonCount,
-            shiftChangeEvents: details.shiftChangeEvents,
-          },
-        },
+        payload,
       }).unwrap();
 
-      alert('Настройки обновлены!');
+      alert('Сохранено!');
       onSave();
     } catch (err: any) {
-      console.error('Save error:', err);
-      alert('Ошибка: ' + (err?.data?.message || err.message));
+      alert('Ошибка: ' + (err?.data || err.message));
     }
   };
 
@@ -250,9 +237,8 @@ export function StationDetailsDialog({ station, onClose, onSave }: StationDetail
           <div className="flex justify-end gap-2">
             <Button
               onClick={handleSave}
-              disabled={!isReady || !stationKey}
             >
-              {isReady ? 'Сохранить' : 'Загрузка ключа...'}
+              Сохранить
             </Button>
           </div>
         </div>

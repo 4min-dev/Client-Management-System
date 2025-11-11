@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getServerMacAddress } from '../utils/network';
 import { useInitializeStationKeyMutation } from '../services/stationService';
 
-export function useInitializeStationKey(stationId: string) {
+export function useInitializeStationKey(stationId: string, isFromGetOptions?: boolean) {
     const [initialize] = useInitializeStationKeyMutation();
     const [isReady, setIsReady] = useState(false);
     const [stationKey, setStationKey] = useState<string | null>(null);
@@ -32,6 +32,17 @@ export function useInitializeStationKey(stationId: string) {
         } catch (err: any) {
             console.error('Key init failed:', err);
             setIsReady(false);
+
+            if (isFromGetOptions) {
+                alert(isFromGetOptions)
+                const mac = await getServerMacAddress();
+                const res = await initialize({ stationId, macAddress: mac }).unwrap();
+
+                alert(res)
+                const { key, expiredAt } = res;
+
+                setStationKey(key)
+            }
         }
     };
 

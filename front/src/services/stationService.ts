@@ -27,7 +27,6 @@ interface GetStationOptionsArgs {
 
 interface UpdateStationSyncArgs {
     stationId: string;
-    cryptoKey: string;
     payload: {
         fuels?: Fuel[];
         options?: {
@@ -77,7 +76,9 @@ export const stationService = createApi({
                 method: 'GET',
             }),
             async transformResponse(response: { data: string }, meta, arg) {
+
                 try {
+                    console.log('transform:', response.data)
                     const decrypted = await decryptWithStationKeyWeb(response.data, arg.cryptoKey);
                     console.log('Decrypted options:', decrypted);
                     return JSON.parse(decrypted);
@@ -90,10 +91,14 @@ export const stationService = createApi({
         }),
 
         updateStationSync: builder.mutation<{ success: boolean }, UpdateStationSyncArgs>({
-            async queryFn({ stationId, cryptoKey, payload }, { signal }) {
+            async queryFn({ stationId, payload }, { getState }) {
                 try {
+                    // Получаем stationKey из localStorage или RTK state
+                    const stationKey = localStorage.getItem(`STATION_CRYPTO_KEY_${stationId}`);
+                    if (!stationKey) throw new Error('Station key not initialized');
+
                     const json = JSON.stringify(payload);
-                    const encrypted = await encryptWithStationKeyWeb(json, cryptoKey);
+                    const encrypted = await encryptWithStationKeyWeb(json, stationKey);
 
                     const response = await fetch(`${BASE_URL}/station/synchronize/crypt/${stationId}/update`, {
                         method: 'PATCH',
@@ -106,25 +111,12 @@ export const stationService = createApi({
 
                     if (!response.ok) {
                         const errText = await response.text();
-                        return {
-                            error: {
-                                status: response.status,
-                                statusText: response.statusText,
-                                data: errText,
-                            } as FetchBaseQueryError,
-                        };
+                        return { error: { status: response.status, data: errText } as FetchBaseQueryError };
                     }
 
                     return { data: { success: true } };
                 } catch (err: any) {
-                    return {
-                        error: {
-                            status: 'CUSTOM_ERROR' as const,
-                            statusText: 'Encryption/Network Error',
-                            data: err.message,
-                            error: err.message,
-                        } as FetchBaseQueryError,
-                    };
+                    return { error: { status: 'CUSTOM_ERROR', data: err.message } as FetchBaseQueryError };
                 }
             },
             invalidatesTags: ['Stations']

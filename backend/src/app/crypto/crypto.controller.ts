@@ -54,6 +54,7 @@ export class CryptoController {
 
     var decryptedData: CreateStationCryptoKeyDto = JSON.parse(encryptedData);
 
+    console.log('dto', dto.data)
     console.log('create')
     console.log(decryptedData)
 

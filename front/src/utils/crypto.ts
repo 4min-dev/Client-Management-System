@@ -190,6 +190,7 @@ export async function decryptWithBackendKey(encrypted: string): Promise<string> 
 
 export async function decryptWithStationKeyWeb(encryptedHex: string, stationKeyHex: string): Promise<string> {
     console.log('decryptWithStationKeyWeb: encryptedHex =', encryptedHex);
+    console.log('stationKeyHex', stationKeyHex)
 
     const [ivHex, encryptedHexData] = encryptedHex.split(':');
     if (!ivHex || !encryptedHexData) {

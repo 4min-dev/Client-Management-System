@@ -132,24 +132,25 @@ export class StationService {
     if (!station) {
       throw new NotFoundException('Станция не найдена');
     }
-
+    console.log('oldKey', oldKey)
+    console.log('stationCryptoKey', station.cryptoKey?.key)
     if (station.macAddress && station.macAddress !== macAddress) {
-      if (!oldKey || station.cryptoKey?.key !== oldKey) {
+      if (oldKey && station.cryptoKey?.key !== oldKey) {
         throw new NotAcceptableException('Для смены MAC нужен старый ключ');
       }
 
-      const macInUse = await this.prisma.station.findFirst({
-        where: {
-          macAddress,
-          id: { not: stationId },
-        },
-      });
+      // const macInUse = await this.prisma.station.findFirst({
+      //   where: {
+      //     macAddress,
+      //     id: { not: stationId },
+      //   },
+      // });
 
-      if (macInUse) {
-        throw new NotAcceptableException(
-          `MAC-адрес ${macAddress} уже привязан к станции "${macInUse.id}"`
-        );
-      }
+      // if (macInUse) {
+      //   throw new NotAcceptableException(
+      //     `MAC-адрес ${macAddress} уже привязан к станции "${macInUse.id}"`
+      //   );
+      // }
     }
 
     const newKey = await this.cryptoService.generateKey();
@@ -159,6 +160,7 @@ export class StationService {
       where: { id: stationId },
       data: {
         macAddress,
+        status: 'Active',
         cryptoKey: {
           upsert: {
             create: {
@@ -358,11 +360,11 @@ export class StationService {
     }
 
     const updateData: any = {};
-
+    console.log('DTO', dto)
     if (dto.country !== undefined) updateData.country = dto.country;
     if (dto.city !== undefined) updateData.city = dto.city;
     if (dto.address !== undefined) updateData.address = dto.address;
-    if (dto.processorCount !== undefined) updateData.procCount = dto.processorCount;
+    if (dto.procCount !== undefined) updateData.procCount = dto.procCount;
     if (dto.pistolCount !== undefined) updateData.pistolCount = dto.pistolCount;
     if (dto.currency !== undefined) updateData.currencyType = dto.currency;
     if (dto.discount !== undefined) updateData.discount = dto.discount;
@@ -394,7 +396,6 @@ export class StationService {
     }
 
     console.log('Update Data:', updateData)
-
 
     const result = await this.prisma.station.update({
       where: { id: stationId },

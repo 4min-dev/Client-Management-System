@@ -17,7 +17,7 @@ export class UpdateStationDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    processorCount?: number;
+    procCount?: number;
 
     @IsOptional()
     @IsNumber()

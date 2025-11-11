@@ -1,26 +1,27 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useGetStationOptionsQuery } from '../services/stationService';
 import { useInitializeStationKey } from './useInitializeStationKey';
 
 interface StationOptions {
-    shiftChangeEvents: number;
-    calibrationChangeEvents: number;
-    seasonChangeEvents: number;
-    receiptCoefficient: number;
-    fixShiftCount: number;
+    shiftChangeEvents: 0 | 1;
+    calibrationChangeEvents: 0 | 1;
+    seasonChangeEvents: 0 | 1;
+    receiptCoefficient: 0 | 1;
+    fixShiftCount: 0 | 1;
     seasonCount: number;
     fuelTypeCount: number;
 }
 
 export function useStationOptions(stationId: string) {
-    const { stationKey, isReady } = useInitializeStationKey(stationId);
+    const { stationKey, isReady } = useInitializeStationKey(stationId, true);
     const { data: optionsData, error } = useGetStationOptionsQuery(
-        { stationId, cryptoKey: stationKey! },
-        { skip: !isReady || !stationKey }
+        { stationId, cryptoKey: stationKey! }
     );
 
     const options = useMemo((): StationOptions => {
+        console.log(optionsData)
         if (!optionsData) {
+
             return {
                 shiftChangeEvents: 0,
                 calibrationChangeEvents: 0,

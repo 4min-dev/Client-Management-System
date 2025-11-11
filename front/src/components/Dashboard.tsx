@@ -98,6 +98,10 @@ export function Dashboard({ onManageFuelTypes, onManagePricing }: DashboardProps
     }
   };
 
+  useEffect(() => {
+    refetchCompanies()
+  }, [showEditClient])
+
   function mapCompanyToFirm(company: any) {
     const stations = company.stations || [];
 
