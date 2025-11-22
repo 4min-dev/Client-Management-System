@@ -18,7 +18,7 @@ interface StationDetailsDialogProps {
 }
 
 export function StationDetailsDialog({ station, onClose, onSave }: StationDetailsDialogProps) {
-  const { isReady, stationKey, refetch } = useInitializeStationKey(station.id);
+  // const { isReady, stationKey, refetch } = useInitializeStationKey(station.id);
   const [updateStationSync] = useUpdateStationSyncMutation();
   const { data: fuelTypes } = useGetFuelListQuery();
 

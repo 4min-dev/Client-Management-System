@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useGetStationOptionsQuery } from '../services/stationService';
+import { useGetStationKeyQuery, useGetStationOptionsQuery } from '../services/stationService';
 import { useInitializeStationKey } from './useInitializeStationKey';
 
 interface StationOptions {
@@ -13,15 +13,34 @@ interface StationOptions {
 }
 
 export function useStationOptions(stationId: string) {
-    const { stationKey, isReady } = useInitializeStationKey(stationId, true);
-    const { data: optionsData, error } = useGetStationOptionsQuery(
-        { stationId, cryptoKey: stationKey! }
+    // 1. Ждём ответа от getStationKey
+    const { data: getKeyData, isLoading: isKeyLoading, isFetching: isKeyFetching } = useGetStationKeyQuery(stationId);
+
+    // 2. Определяем, нужно ли инициализировать ключ
+    const shouldInitialize = getKeyData?.data?.key == null && getKeyData != null;
+
+    // 3. Инициализируем ключ ТОЛЬКО если нужно
+    const initializeResult = shouldInitialize
+        ? useInitializeStationKey(stationId, true, true)
+        : null;
+
+    const stationKey = shouldInitialize && initializeResult ? initializeResult.stationKey : null;
+    const isReady = shouldInitialize && initializeResult ? initializeResult.isReady : true;
+
+    // 4. Формируем cryptoKey
+    const cryptoKey = getKeyData?.data?.key ?? stationKey;
+
+    // 5. Пропускаем запрос, пока нет ключа
+    const skipOptions = !cryptoKey || isKeyLoading || (shouldInitialize && !isReady);
+
+    const { data: optionsData, error, isFetching: isOptionsFetching } = useGetStationOptionsQuery(
+        { stationId, cryptoKey: cryptoKey! },
+        { skip: skipOptions }
     );
 
+    // 6. Мемоизируем опции
     const options = useMemo((): StationOptions => {
-        console.log(optionsData)
         if (!optionsData) {
-
             return {
                 shiftChangeEvents: 0,
                 calibrationChangeEvents: 0,
@@ -44,5 +63,7 @@ export function useStationOptions(stationId: string) {
         };
     }, [optionsData]);
 
-    return { options, error };
+    const isLoading = isKeyLoading || (shouldInitialize && !isReady) || isOptionsFetching;
+
+    return { options, error, isLoading };
 }

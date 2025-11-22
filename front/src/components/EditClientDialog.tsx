@@ -27,8 +27,7 @@ import {
 } from 'lucide-react';
 import { StationDetailsDialog } from './StationDetailsDialog';
 import { useDeleteStationMutation, useGetStationOptionsQuery, useResetStationMacMutation, useUpdateStationMutation } from '../services/stationService';
-import { useStationOptions } from '../hooks/useStationOptions';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { StationRow } from './ui/stationRow';
 
 interface EditClientDialogProps {
   firm: Firm;
@@ -206,202 +205,26 @@ export function EditClientDialog({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {firm.stations.map((station, index) => {
-                  const { options } = useStationOptions(station.id)
-
-                  const edited = editedStations[station.id] || {};
-                  return (
-                    <TableRow key={station.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{station.id}</TableCell>
-                      <TableCell>
-                        {editMode ? (
-                          <>
-                            <Input
-                              value={edited.responsibleName ?? station.contact.name ?? ''}
-                              onChange={(e) => handleInputChange(station.id, 'responsibleName', e.target.value)}
-                              onKeyDown={handleKeyDown}
-                              className="h-7 text-xs"
-                              placeholder="Имя"
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <div>{station.contact.name || '-'}</div>
-                            {station.responsibleDescription && (
-                              <div className="text-xs text-muted-foreground">
-                                {station.responsibleDescription}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </TableCell>
-
-                      {/* Страна */}
-                      <TableCell>
-                        {editMode ? (
-                          <Input
-                            value={edited.country ?? station.country ?? ''}
-                            onChange={(e) => handleInputChange(station.id, 'country', e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 text-xs w-16"
-                            placeholder="Страна"
-                          />
-                        ) : (
-                          station.country || '-'
-                        )}
-                      </TableCell>
-
-                      {/* Город */}
-                      <TableCell>
-                        {editMode ? (
-                          <Input
-                            value={edited.city ?? station.city ?? ''}
-                            onChange={(e) => handleInputChange(station.id, 'city', e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 text-xs w-16"
-                            placeholder="Город"
-                          />
-                        ) : (
-                          station.city || '-'
-                        )}
-                      </TableCell>
-
-                      {/* Адрес */}
-                      <TableCell>
-                        {editMode ? (
-                          <Input
-                            value={edited.address ?? station.address ?? ''}
-                            onChange={(e) => handleInputChange(station.id, 'address', e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 text-xs w-16"
-                            placeholder="Адрес"
-                          />
-                        ) : (
-                          station.address || '-'
-                        )}
-                      </TableCell>
-
-                      {/* Процессоры */}
-                      <TableCell className="text-right">
-                        {editMode ? (
-                          <Input
-                            type="number"
-                            value={edited.procCount ?? station.procCount}
-                            onChange={(e) => handleInputChange(station.id, 'procCount', parseInt(e.target.value) || 0)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 w-16 text-xs"
-                          />
-                        ) : (
-                          station.procCount
-                        )}
-                      </TableCell>
-
-                      {/* Пистолеты */}
-                      <TableCell className="text-right">
-                        {editMode ? (
-                          <Input
-                            type="number"
-                            value={edited.pistolCount ?? station.pistolCount}
-                            onChange={(e) => handleInputChange(station.id, 'pistolCount', parseInt(e.target.value) || 0)}
-                            onKeyDown={handleKeyDown}
-                            className="h-7 w-16 text-xs"
-                          />
-                        ) : (
-                          station.pistolCount
-                        )}
-                      </TableCell>
-
-                      {/* Детали */}
-                      <TableCell className="text-xs">
-                        1-{options.shiftChangeEvents}/2-{options.calibrationChangeEvents}/
-                        3-{options.seasonChangeEvents}/4-{station.selectedFuelTypes.length}/
-                        5-{options.fixShiftCount}/6-{options.receiptCoefficient}/
-                        7-{options.seasonCount}
-                      </TableCell>
-
-                      {/* Валюта */}
-                      <TableCell>
-                        {editMode ? (
-                          <Select value={edited.currency || station.currency} onValueChange={(v: Currency) => handleInputChange(station.id, 'currency', v)}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="AMD">AMD</SelectItem>
-                              <SelectItem value="RUB">RUB</SelectItem>
-                              <SelectItem value="USD">USD</SelectItem>
-                              <SelectItem value="EUR">EUR</SelectItem>
-                              <SelectItem value="GEL">GEL</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          station.currency || '-'
-                        )}
-                      </TableCell>
-
-                      {/* Скидка */}
-                      <TableCell className="text-right">
-                        {station.discount.toFixed(2)}%
-                      </TableCell>
-
-                      {/* Предоплата */}
-                      <TableCell className="text-right">
-                        {station.prepayment ? station.prepayment.toFixed(2) : '-'}
-                      </TableCell>
-
-                      {/* Лицензия */}
-                      <TableCell className="text-sm">{formatDate(station.licenseDate)}</TableCell>
-
-                      {/* Синхронизация */}
-                      <TableCell className="text-sm">{formatDate(station.syncDate)}</TableCell>
-
-                      {/* Действия */}
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          <a href={`tel:${station.responsibleContact}`}>
-                            <Button size="sm" variant="ghost" title="Звонок">
-                              <Phone className="w-4 h-4" />
-                            </Button>
-                          </a>
-                          <Button size="sm" variant="ghost" title="Сообщение" onClick={onMessageClick}>
-                            <MessageSquare className="w-4 h-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost" title="События" onClick={onEventsClick}>
-                            <Bell className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Компоненты"
-                            onClick={() => {
-                              setSelectedStation(station);
-                              setShowDetails(true);
-                            }}
-                          >
-                            <Settings className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Очистить MAC адрес"
-                            onClick={() => handleMacRequest(station)}
-                          >
-                            <Key className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            title="Удалить"
-                            onClick={() => handleDelete(station)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {firm.stations.map((station, index) => (
+                  <StationRow
+                    key={station.id}
+                    station={station}
+                    index={index}
+                    editMode={editMode}
+                    editedStations={editedStations}
+                    onInputChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    onMessageClick={onMessageClick}
+                    onEventsClick={onEventsClick}
+                    onShowDetails={(s) => {
+                      setSelectedStation(s);
+                      setShowDetails(true);
+                    }}
+                    onMacReset={handleMacRequest}
+                    onDelete={handleDelete}
+                    formatDate={formatDate}
+                  />
+                ))}
               </TableBody>
             </Table>
           </div>

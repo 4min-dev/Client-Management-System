@@ -2,10 +2,21 @@ import { useEffect, useState } from 'react';
 import { getServerMacAddress } from '../utils/network';
 import { useInitializeStationKeyMutation } from '../services/stationService';
 
-export function useInitializeStationKey(stationId: string, isFromGetOptions?: boolean) {
-    const [initialize] = useInitializeStationKeyMutation();
+export function useInitializeStationKey(stationId: string, isFromGetOptions?: boolean, canUpdate?: boolean) {
     const [isReady, setIsReady] = useState(false);
     const [stationKey, setStationKey] = useState<string | null>(null);
+
+    if (!canUpdate) {
+        return {
+            isReady: false,
+            stationKey: null,
+            refetch: async () => { },
+            updateKey: () => { },
+        }
+    }
+
+    const [initialize] = useInitializeStationKeyMutation();
+
 
     const keyStorage = `STATION_CRYPTO_KEY_${stationId}`;
     const expiresStorage = `STATION_KEY_EXPIRES_${stationId}`;
@@ -34,11 +45,9 @@ export function useInitializeStationKey(stationId: string, isFromGetOptions?: bo
             setIsReady(false);
 
             if (isFromGetOptions) {
-                alert(isFromGetOptions)
                 const mac = await getServerMacAddress();
                 const res = await initialize({ stationId, macAddress: mac }).unwrap();
 
-                alert(res)
                 const { key, expiredAt } = res;
 
                 setStationKey(key)

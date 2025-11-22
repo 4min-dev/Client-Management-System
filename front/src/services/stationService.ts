@@ -91,14 +91,96 @@ export const stationService = createApi({
         }),
 
         updateStationSync: builder.mutation<{ success: boolean }, UpdateStationSyncArgs>({
-            async queryFn({ stationId, payload }, { getState }) {
-                try {
-                    // Получаем stationKey из localStorage или RTK state
-                    const stationKey = localStorage.getItem(`STATION_CRYPTO_KEY_${stationId}`);
-                    if (!stationKey) throw new Error('Station key not initialized');
+            async queryFn({ stationId, payload }, { dispatch, getState }) {
+                let stationKey: string | null = null;
+                let keyExpiredAt: string | null = null;
 
+                try {
+                    // === 1. Сначала: пробуем получить ключ с сервера ===
+                    const keyResponse = await fetch(`${BASE_URL}/crypto/key/${stationId}`, {
+                        method: "GET",
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
+                        },
+                    });
+
+                    if (keyResponse.ok) {
+                        const json = await keyResponse.json();
+                        if (json?.data?.key && json?.data?.expiredAt) {
+                            stationKey = json.data.key;
+                            keyExpiredAt = json.data.expiredAt;
+
+                            // Проверяем, не истёк ли ключ
+                            if (new Date(keyExpiredAt) > new Date()) {
+                                localStorage.setItem(`STATION_CRYPTO_KEY_${stationId}`, stationKey);
+                                localStorage.setItem(`STATION_KEY_EXPIRES_${stationId}`, keyExpiredAt);
+                                console.log('Ключ получен с сервера и валиден');
+                            } else {
+                                console.log('Ключ с сервера истёк, попробуем localStorage или инициализацию');
+                                stationKey = null; // Сбросим, чтобы пойти дальше
+                            }
+                        }
+                    } else if (keyResponse.status !== 404) {
+                        console.warn('Ошибка при получении ключа с сервера:', keyResponse.status);
+                    }
+
+                    // === 2. Если ключа нет с сервера — пробуем localStorage ===
+                    if (!stationKey) {
+                        const savedKey = localStorage.getItem(`STATION_CRYPTO_KEY_${stationId}`);
+                        const savedExpires = localStorage.getItem(`STATION_KEY_EXPIRES_${stationId}`);
+
+                        if (savedKey && savedExpires && new Date(savedExpires) > new Date()) {
+                            stationKey = savedKey;
+                            keyExpiredAt = savedExpires;
+                            console.log('Ключ взят из localStorage');
+                        } else {
+                            // Удаляем устаревший ключ
+                            localStorage.removeItem(`STATION_CRYPTO_KEY_${stationId}`);
+                            localStorage.removeItem(`STATION_KEY_EXPIRES_${stationId}`);
+                        }
+                    }
+
+                    // === 3. Если ключа всё ещё нет — инициализируем по MAC ===
+                    if (!stationKey) {
+                        console.log('Ключ не найден — инициализируем по MAC');
+                        const macAddress = await getServerMacAddress();
+                        const initPayload = JSON.stringify({ stationId, macAddress });
+                        const encrypted = await encryptWithBackendKeyWeb(initPayload);
+
+                        const initResponse = await fetch(`${BASE_URL}/crypto/key`, {
+                            method: "POST",
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
+                            },
+                            body: JSON.stringify({ data: encrypted }),
+                        });
+
+                        if (!initResponse.ok) {
+                            const errText = await initResponse.text();
+                            throw new Error(`Инициализация ключа не удалась: ${errText}`);
+                        }
+
+                        const initJson = await initResponse.json();
+                        if (!initJson?.isSuccess || !initJson?.data) {
+                            throw new Error('Некорректный ответ при инициализации ключа');
+                        }
+
+                        const decrypted = await decryptBackendResponse(initJson.data);
+                        const keyData = JSON.parse(decrypted);
+
+                        stationKey = keyData.key;
+                        keyExpiredAt = keyData.expiredAt;
+
+                        localStorage.setItem(`STATION_CRYPTO_KEY_${stationId}`, stationKey);
+                        localStorage.setItem(`STATION_KEY_EXPIRES_${stationId}`, keyExpiredAt);
+                        console.log('Ключ успешно инициализирован по MAC');
+                    }
+
+                    // === 4. Шифруем и отправляем payload ===
                     const json = JSON.stringify(payload);
-                    const encrypted = await encryptWithStationKeyWeb(json, stationKey);
+                    const encryptedPayload = await encryptWithStationKeyWeb(json, stationKey!);
 
                     const response = await fetch(`${BASE_URL}/station/synchronize/crypt/${stationId}/update`, {
                         method: 'PATCH',
@@ -106,7 +188,7 @@ export const stationService = createApi({
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${sessionStorage.getItem('accessToken')}`,
                         },
-                        body: JSON.stringify({ data: encrypted }),
+                        body: JSON.stringify({ data: encryptedPayload }),
                     });
 
                     if (!response.ok) {
@@ -115,8 +197,14 @@ export const stationService = createApi({
                     }
 
                     return { data: { success: true } };
+
                 } catch (err: any) {
-                    return { error: { status: 'CUSTOM_ERROR', data: err.message } as FetchBaseQueryError };
+                    return {
+                        error: {
+                            status: 'CUSTOM_ERROR',
+                            data: err.message || 'Неизвестная ошибка при обновлении станции'
+                        } as FetchBaseQueryError
+                    };
                 }
             },
             invalidatesTags: ['Stations']
@@ -187,7 +275,7 @@ export const stationService = createApi({
             },
         }),
 
-        getStationKey: builder.query<{ key: string; expiredAt: string }, string>({
+        getStationKey: builder.query<{ data: { key: string; expiredAt: string } }, string>({
             query: (stationId) => ({
                 url: `/crypto/key/${stationId}`,
                 method: 'GET',
